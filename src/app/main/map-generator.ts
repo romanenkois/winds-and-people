@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
 
 export interface HexTile {
-  id: string;
+  id: number;
   color: string;
   type: 'hex' | 'pent';
-  neighbors: string[];
+  neighbors: number[];
   x: number;
   y: number;
   z: number;
@@ -26,14 +26,14 @@ interface Triangle {
   providedIn: 'root',
 })
 export class MapGenerator {
-  private readonly map = new Map<string, HexTile>();
+  private readonly map = new Map<number, HexTile>();
 
   public generateNewMap() {
     this.map.clear();
 
     // Generate geodesic sphere with approximately 16,000 hex tiles
     // Subdivision levels: 0=12 tiles, 1=42, 2=162, 3=642, 4=2562, 5=10242, 6=40962
-    const subdivisionLevel = 6;
+    const subdivisionLevel = 8;
     console.log('Generating geodesic sphere with subdivision level:', subdivisionLevel);
     this.generateGeodesicSphere(subdivisionLevel);
   }
@@ -207,10 +207,10 @@ export class MapGenerator {
       }
 
       const tile: HexTile = {
-        id: `tile-${vIndex}`,
+        id: vIndex,
         color: type === 'pent' ? '#000000' : this.getRandomColor(),
         type,
-        neighbors: Array.from(neighborSet).map((n) => `tile-${n}`),
+        neighbors: Array.from(neighborSet),
         x: vertex.x,
         y: vertex.y,
         z: vertex.z,
@@ -229,11 +229,11 @@ export class MapGenerator {
     return color;
   }
 
-  public getMap(): Map<string, HexTile> {
+  public getMap(): Map<number, HexTile> {
     return this.map;
   }
 
-  public getTile(id: string): HexTile | undefined {
+  public getTile(id: number): HexTile | undefined {
     return this.map.get(id);
   }
 }

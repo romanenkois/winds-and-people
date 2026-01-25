@@ -5,20 +5,12 @@ import {
   viewChild,
   effect,
   inject,
+  NgZone,
+  OnDestroy,
 } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { MapGenerator } from '../map-generator';
-
-export interface HexTile {
-  id: string;
-  color: string;
-  type: 'hex' | 'pent';
-  neighbors: string[];
-  x: number;
-  y: number;
-  z: number;
-}
+import { MapGenerator, HexTile } from '../map-generator';
 
 @Component({
   selector: 'app-game-window',
@@ -27,8 +19,9 @@ export interface HexTile {
   styleUrls: ['./game-window.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GameWindow {
+export class GameWindow implements OnDestroy {
   private mapGeneratorService = inject(MapGenerator);
+  private ngZone = inject(NgZone);
 
   private canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private scene!: THREE.Scene;
@@ -39,13 +32,19 @@ export class GameWindow {
   private mouse = new THREE.Vector2();
   private animationId?: number;
 
+  private hexMesh!: THREE.InstancedMesh;
+  private pentMesh!: THREE.InstancedMesh;
+  private hexTilesData: HexTile[] = [];
+  private pentTilesData: HexTile[] = [];
+
   constructor() {
     this.mapGeneratorService.generateNewMap();
+    console.log('Map generated with', this.mapGeneratorService.getMap().size, 'tiles.');
+    console.log(this.mapGeneratorService.getMap().get(20));
 
     effect(() => {
       const canvas = this.canvasRef().nativeElement;
       this.initThreeJS(canvas);
-      this.animate();
     });
   }
 
@@ -94,11 +93,16 @@ export class GameWindow {
 
     // Add click event listener
     canvas.addEventListener('click', (event) => this.onCanvasClick(event));
+
+    // Start animation loop outside Angular to avoid change detection thrashing
+    this.ngZone.runOutsideAngular(() => {
+      this.animate();
+    });
   }
 
   private renderHexSphere(): void {
     console.log('Rendering hex sphere...');
-    const map: Map<string, HexTile> = this.mapGeneratorService.getMap();
+    const map: Map<number, HexTile> = this.mapGeneratorService.getMap();
     const radius = 1;
 
     // Calculate average distance to nearest neighbor for tile sizing
@@ -121,53 +125,86 @@ export class GameWindow {
     // Size tiles so they touch at edges (inscribed circle radius for regular polygon)
     const tileRadius = avgDistance / 2;
 
+    // Separate tiles by type
+    this.hexTilesData = [];
+    this.pentTilesData = [];
+
     map.forEach((tile) => {
-      // Create geometry based on tile type (pentagon or hexagon)
-      const segments = tile.type === 'pent' ? 5 : 6;
-      const tileGeometry = new THREE.CircleGeometry(tileRadius, segments);
-      const tileMaterial = new THREE.MeshStandardMaterial({
-        color: tile.color,
-        side: THREE.DoubleSide,
-        flatShading: true,
+      if (tile.type === 'hex') {
+        this.hexTilesData.push(tile);
+      } else {
+        this.pentTilesData.push(tile);
+      }
+    });
+
+    const material = new THREE.MeshStandardMaterial({
+      roughness: 0.6,
+      metalness: 0.1,
+      flatShading: true,
+      side: THREE.DoubleSide,
+    });
+
+    // Helper function to create and populate instanced mesh
+    const createInstancedMesh = (
+      tiles: HexTile[],
+      segments: number,
+    ): THREE.InstancedMesh => {
+      const geometry = new THREE.CircleGeometry(tileRadius, segments);
+      const mesh = new THREE.InstancedMesh(geometry, material, tiles.length);
+      const dummy = new THREE.Object3D();
+      const color = new THREE.Color();
+
+      tiles.forEach((tile, i) => {
+        // Position on sphere surface
+        const position = new THREE.Vector3(tile.x, tile.y, tile.z);
+        position.multiplyScalar(radius);
+        dummy.position.copy(position);
+
+        // Orient the tile to face outward from sphere center
+        dummy.lookAt(0, 0, 0);
+        dummy.rotateY(Math.PI);
+
+        // Align tile rotation with first neighbor for proper edge connection
+        if (tile.neighbors.length > 0) {
+          const neighbor = map.get(tile.neighbors[0]);
+          if (neighbor) {
+            const neighborPos = new THREE.Vector3(neighbor.x, neighbor.y, neighbor.z);
+            neighborPos.multiplyScalar(radius);
+
+            // Calculate direction to first neighbor in local tile space
+            const toNeighbor = neighborPos.clone().sub(dummy.position);
+            const localUp = position.clone().normalize();
+
+            // Project neighbor direction onto tile plane
+            const tangent = toNeighbor
+              .clone()
+              .sub(localUp.clone().multiplyScalar(toNeighbor.dot(localUp)));
+            tangent.normalize();
+
+            // Calculate rotation angle to align edge with neighbor
+            const angle = Math.atan2(tangent.y, tangent.x);
+            dummy.rotateZ(-angle + Math.PI / 2);
+          }
+        }
+
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        mesh.setColorAt(i, color.set(tile.color));
       });
 
-      const tileMesh = new THREE.Mesh(tileGeometry, tileMaterial);
+      return mesh;
+    };
 
-      // Store tile data in mesh userData for click detection
-      tileMesh.userData = { tile };
+    // Create and add meshes
+    if (this.hexTilesData.length > 0) {
+      this.hexMesh = createInstancedMesh(this.hexTilesData, 6);
+      this.scene.add(this.hexMesh);
+    }
 
-      // Position on sphere surface
-      const position = new THREE.Vector3(tile.x, tile.y, tile.z);
-      position.multiplyScalar(radius);
-      tileMesh.position.copy(position);
-
-      // Orient the tile to face outward from sphere center
-      tileMesh.lookAt(0, 0, 0);
-      tileMesh.rotateY(Math.PI);
-
-      // Align tile rotation with first neighbor for proper edge connection
-      if (tile.neighbors.length > 0) {
-        const neighbor = map.get(tile.neighbors[0]);
-        if (neighbor) {
-          const neighborPos = new THREE.Vector3(neighbor.x, neighbor.y, neighbor.z);
-          neighborPos.multiplyScalar(radius);
-
-          // Calculate direction to first neighbor in local tile space
-          const toNeighbor = neighborPos.clone().sub(tileMesh.position);
-          const localUp = position.clone().normalize();
-
-          // Project neighbor direction onto tile plane
-          const tangent = toNeighbor.clone().sub(localUp.clone().multiplyScalar(toNeighbor.dot(localUp)));
-          tangent.normalize();
-
-          // Calculate rotation angle to align edge with neighbor
-          const angle = Math.atan2(tangent.y, tangent.x);
-          tileMesh.rotateZ(-angle + Math.PI / 2);
-        }
-      }
-
-      this.scene.add(tileMesh);
-    });
+    if (this.pentTilesData.length > 0) {
+      this.pentMesh = createInstancedMesh(this.pentTilesData, 5);
+      this.scene.add(this.pentMesh);
+    }
   }
 
   private onCanvasClick(event: MouseEvent): void {
@@ -182,12 +219,33 @@ export class GameWindow {
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
     // Calculate objects intersecting the picking ray
-    const intersects = this.raycaster.intersectObjects(this.scene.children);
+    // We only need to check the instanced meshes
+    const meshesToCheck: THREE.Object3D[] = [];
+    if (this.hexMesh) meshesToCheck.push(this.hexMesh);
+    if (this.pentMesh) meshesToCheck.push(this.pentMesh);
+
+    const intersects = this.raycaster.intersectObjects(meshesToCheck);
 
     if (intersects.length > 0) {
-      const clickedObject = intersects[0].object;
-      if (clickedObject.userData['tile']) {
-        console.log('Clicked tile:', clickedObject.userData['tile']);
+      const intersection = intersects[0];
+      const instanceId = intersection.instanceId;
+
+      if (instanceId !== undefined) {
+        let clickedTile: HexTile | undefined;
+
+        if (intersection.object === this.hexMesh) {
+          clickedTile = this.hexTilesData[instanceId];
+        } else if (intersection.object === this.pentMesh) {
+          clickedTile = this.pentTilesData[instanceId];
+        }
+
+        if (clickedTile) {
+          console.log('Clicked tile:', clickedTile);
+          // Optional: Visual feedback
+          // const color = new THREE.Color().setHex(Math.random() * 0xffffff);
+          // (intersection.object as THREE.InstancedMesh).setColorAt(instanceId, color);
+          // (intersection.object as THREE.InstancedMesh).instanceColor!.needsUpdate = true;
+        }
       }
     }
   }
