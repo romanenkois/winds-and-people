@@ -33,7 +33,7 @@ export class MapGenerator {
 
     // Generate geodesic sphere with approximately 16,000 hex tiles
     // Subdivision levels: 0=12 tiles, 1=42, 2=162, 3=642, 4=2562, 5=10242, 6=40962
-    const subdivisionLevel = 6;
+    const subdivisionLevel = 2;
     console.log('Generating geodesic sphere with subdivision level:', subdivisionLevel);
     this.generateGeodesicSphere(subdivisionLevel);
   }
@@ -208,7 +208,7 @@ export class MapGenerator {
 
       const tile: HexTile = {
         id: `tile-${vIndex}`,
-        color: this.getRandomColor(),
+        color: type === 'pent' ? '#000000' : this.getRandomColor(),
         type,
         neighbors: Array.from(neighborSet).map((n) => `tile-${n}`),
         x: vertex.x,
@@ -221,8 +221,12 @@ export class MapGenerator {
   }
 
   private getRandomColor(): string {
-    const colors = ['#4a7c59', '#5a8c69', '#6a9c79', '#7aac89', '#8abc99'];
-    return colors[Math.floor(Math.random() * colors.length)];
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
   }
 
   public getMap(): Map<string, HexTile> {

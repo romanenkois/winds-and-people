@@ -24,14 +24,13 @@ export class GameWindow {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
-  private sphere!: THREE.Mesh;
   private controls!: OrbitControls;
+  private raycaster = new THREE.Raycaster();
+  private mouse = new THREE.Vector2();
   private animationId?: number;
 
   constructor() {
     this.mapGeneratorService.generateNewMap();
-
-    console.log(this.mapGeneratorService.getMap().size, 'tiles generated');
 
     effect(() => {
       const canvas = this.canvasRef().nativeElement;
@@ -59,22 +58,16 @@ export class GameWindow {
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
 
-    // Create sphere geometry
-    const geometry = new THREE.SphereGeometry(1.5, 32, 32);
-
-    // Create material with wireframe
-    const material = new THREE.MeshBasicMaterial({
-      color: 0x00ff88,
-      wireframe: true,
-    });
-
-    this.sphere = new THREE.Mesh(geometry, material);
-    this.scene.add(this.sphere);
+    // Render hex sphere from map generator
+    this.renderHexSphere();
 
     // Add lighting
-    const light = new THREE.PointLight(0xffffff, 1, 100);
-    light.position.set(5, 5, 5);
-    this.scene.add(light);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    this.scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 5, 5);
+    this.scene.add(directionalLight);
 
     // Setup orbit controls
     this.controls = new OrbitControls(this.camera, canvas);
@@ -83,11 +76,68 @@ export class GameWindow {
     this.controls.enableZoom = true;
     this.controls.minDistance = 2;
     this.controls.maxDistance = 10;
-    this.controls.autoRotate = true;
-    this.controls.autoRotateSpeed = 0.5;
+    // this.controls.autoRotate = true;
+    // this.controls.autoRotateSpeed = 0.5;
 
     // Handle window resize
     window.addEventListener('resize', () => this.onWindowResize());
+
+    // Add click event listener
+    canvas.addEventListener('click', (event) => this.onCanvasClick(event));
+  }
+
+  private renderHexSphere(): void {
+    const map = this.mapGeneratorService.getMap();
+    const radius = 1;
+
+    map.forEach((tile) => {
+      // Create geometry based on tile type (pentagon or hexagon)
+      const segments = tile.type === 'pent' ? 5 : 6;
+      const tileGeometry = new THREE.CircleGeometry(0.025, segments);
+      const tileMaterial = new THREE.MeshStandardMaterial({
+        color: tile.color,
+        side: THREE.DoubleSide,
+        flatShading: true,
+      });
+
+      const tileMesh = new THREE.Mesh(tileGeometry, tileMaterial);
+
+      // Store tile data in mesh userData for click detection
+      tileMesh.userData = { tile };
+
+      // Position on sphere surface
+      const position = new THREE.Vector3(tile.x, tile.y, tile.z);
+      position.multiplyScalar(radius);
+      tileMesh.position.copy(position);
+
+      // Orient the circle to face outward from sphere center
+      tileMesh.lookAt(0, 0, 0);
+      tileMesh.rotateY(Math.PI);
+
+      this.scene.add(tileMesh);
+    });
+  }
+
+  private onCanvasClick(event: MouseEvent): void {
+    const canvas = this.canvasRef().nativeElement;
+    const rect = canvas.getBoundingClientRect();
+
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update raycaster with camera and mouse position
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // Calculate objects intersecting the picking ray
+    const intersects = this.raycaster.intersectObjects(this.scene.children);
+
+    if (intersects.length > 0) {
+      const clickedObject = intersects[0].object;
+      if (clickedObject.userData['tile']) {
+        console.log('Clicked tile:', clickedObject.userData['tile']);
+      }
+    }
   }
 
   private animate(): void {
