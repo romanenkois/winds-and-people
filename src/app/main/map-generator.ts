@@ -28,13 +28,15 @@ interface Triangle {
 export class MapGenerator {
   private readonly map = new Map<number, HexTile>();
 
-  public generateNewMap() {
+  public generateNewMap(subdivisionLevel: number) {
     this.map.clear();
-
-    // Generate geodesic sphere with approximately 16,000 hex tiles
-    // Subdivision levels: 0=12 tiles, 1=42, 2=162, 3=642, 4=2562, 5=10242, 6=40962
-    const subdivisionLevel = 8;
-    console.log('Generating geodesic sphere with subdivision level:', subdivisionLevel);
+    const totalTiles = 10 * Math.pow(4, subdivisionLevel) + 2;
+    console.log(
+      'Generating geodesic sphere with subdivision level:',
+      subdivisionLevel,
+      'with total tiles:',
+      totalTiles,
+    );
     this.generateGeodesicSphere(subdivisionLevel);
   }
 
@@ -102,7 +104,6 @@ export class MapGenerator {
     vertices.forEach((v, i) => {
       vertexCache.set(this.getVertexKey(v), i);
     });
-
 
     for (let i = 0; i < level; i++) {
       const newTriangles: Triangle[] = [];

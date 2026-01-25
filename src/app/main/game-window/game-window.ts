@@ -38,9 +38,7 @@ export class GameWindow implements OnDestroy {
   private pentTilesData: HexTile[] = [];
 
   constructor() {
-    this.mapGeneratorService.generateNewMap();
-    console.log('Map generated with', this.mapGeneratorService.getMap().size, 'tiles.');
-    console.log(this.mapGeneratorService.getMap().get(20));
+    this.mapGeneratorService.generateNewMap(8);
 
     effect(() => {
       const canvas = this.canvasRef().nativeElement;
@@ -83,7 +81,7 @@ export class GameWindow implements OnDestroy {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.enableZoom = true;
-    this.controls.minDistance = 2;
+    this.controls.minDistance = 0.5;
     this.controls.maxDistance = 10;
     // this.controls.autoRotate = true;
     // this.controls.autoRotateSpeed = 0.5;
@@ -145,10 +143,7 @@ export class GameWindow implements OnDestroy {
     });
 
     // Helper function to create and populate instanced mesh
-    const createInstancedMesh = (
-      tiles: HexTile[],
-      segments: number,
-    ): THREE.InstancedMesh => {
+    const createInstancedMesh = (tiles: HexTile[], segments: number): THREE.InstancedMesh => {
       const geometry = new THREE.CircleGeometry(tileRadius, segments);
       const mesh = new THREE.InstancedMesh(geometry, material, tiles.length);
       const dummy = new THREE.Object3D();
