@@ -33,7 +33,7 @@ export class MapGenerator {
 
     // Generate geodesic sphere with approximately 16,000 hex tiles
     // Subdivision levels: 0=12 tiles, 1=42, 2=162, 3=642, 4=2562, 5=10242, 6=40962
-    const subdivisionLevel = 2;
+    const subdivisionLevel = 6;
     console.log('Generating geodesic sphere with subdivision level:', subdivisionLevel);
     this.generateGeodesicSphere(subdivisionLevel);
   }
@@ -99,10 +99,10 @@ export class MapGenerator {
     let currentTriangles = [...triangles];
     const vertexCache = new Map<string, number>();
 
-    for (const vertex of vertices) {
-      const key = this.getVertexKey(vertex);
-      vertexCache.set(key, vertices.indexOf(vertex));
-    }
+    vertices.forEach((v, i) => {
+      vertexCache.set(this.getVertexKey(v), i);
+    });
+
 
     for (let i = 0; i < level; i++) {
       const newTriangles: Triangle[] = [];

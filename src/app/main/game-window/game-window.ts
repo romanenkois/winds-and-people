@@ -10,6 +10,16 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { MapGenerator } from '../map-generator';
 
+export interface HexTile {
+  id: string;
+  color: string;
+  type: 'hex' | 'pent';
+  neighbors: string[];
+  x: number;
+  y: number;
+  z: number;
+}
+
 @Component({
   selector: 'app-game-window',
   imports: [],
@@ -87,13 +97,34 @@ export class GameWindow {
   }
 
   private renderHexSphere(): void {
-    const map = this.mapGeneratorService.getMap();
+    console.log('Rendering hex sphere...');
+    const map: Map<string, HexTile> = this.mapGeneratorService.getMap();
     const radius = 1;
+
+    // Calculate average distance to nearest neighbor for tile sizing
+    let avgDistance = 0;
+    let count = 0;
+    map.forEach((tile) => {
+      if (tile.neighbors.length > 0) {
+        const neighbor = map.get(tile.neighbors[0]);
+        if (neighbor) {
+          const dx = tile.x - neighbor.x;
+          const dy = tile.y - neighbor.y;
+          const dz = tile.z - neighbor.z;
+          avgDistance += Math.sqrt(dx * dx + dy * dy + dz * dz);
+          count++;
+        }
+      }
+    });
+    avgDistance = (avgDistance / count) * radius;
+
+    // Size tiles so they touch at edges (inscribed circle radius for regular polygon)
+    const tileRadius = avgDistance / 2;
 
     map.forEach((tile) => {
       // Create geometry based on tile type (pentagon or hexagon)
       const segments = tile.type === 'pent' ? 5 : 6;
-      const tileGeometry = new THREE.CircleGeometry(0.025, segments);
+      const tileGeometry = new THREE.CircleGeometry(tileRadius, segments);
       const tileMaterial = new THREE.MeshStandardMaterial({
         color: tile.color,
         side: THREE.DoubleSide,
@@ -110,9 +141,30 @@ export class GameWindow {
       position.multiplyScalar(radius);
       tileMesh.position.copy(position);
 
-      // Orient the circle to face outward from sphere center
+      // Orient the tile to face outward from sphere center
       tileMesh.lookAt(0, 0, 0);
       tileMesh.rotateY(Math.PI);
+
+      // Align tile rotation with first neighbor for proper edge connection
+      if (tile.neighbors.length > 0) {
+        const neighbor = map.get(tile.neighbors[0]);
+        if (neighbor) {
+          const neighborPos = new THREE.Vector3(neighbor.x, neighbor.y, neighbor.z);
+          neighborPos.multiplyScalar(radius);
+
+          // Calculate direction to first neighbor in local tile space
+          const toNeighbor = neighborPos.clone().sub(tileMesh.position);
+          const localUp = position.clone().normalize();
+
+          // Project neighbor direction onto tile plane
+          const tangent = toNeighbor.clone().sub(localUp.clone().multiplyScalar(toNeighbor.dot(localUp)));
+          tangent.normalize();
+
+          // Calculate rotation angle to align edge with neighbor
+          const angle = Math.atan2(tangent.y, tangent.x);
+          tileMesh.rotateZ(-angle + Math.PI / 2);
+        }
+      }
 
       this.scene.add(tileMesh);
     });
