@@ -1,15 +1,25 @@
-import { Component, ChangeDetectionStrategy, ElementRef, viewChild, effect } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  ElementRef,
+  viewChild,
+  effect,
+  inject,
+} from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { MapGenerator } from '../map-generator';
 
 @Component({
   selector: 'app-game-window',
   imports: [],
   templateUrl: './game-window.html',
-  styleUrl: './game-window.scss',
+  styleUrls: ['./game-window.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GameWindow {
+  private mapGeneratorService = inject(MapGenerator);
+
   private canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
@@ -19,6 +29,10 @@ export class GameWindow {
   private animationId?: number;
 
   constructor() {
+    this.mapGeneratorService.generateNewMap();
+
+    console.log(this.mapGeneratorService.getMap().size, 'tiles generated');
+
     effect(() => {
       const canvas = this.canvasRef().nativeElement;
       this.initThreeJS(canvas);
@@ -36,7 +50,7 @@ export class GameWindow {
       75,
       canvas.clientWidth / canvas.clientHeight,
       0.1,
-      1000
+      1000,
     );
     this.camera.position.z = 5;
 

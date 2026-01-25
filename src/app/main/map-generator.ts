@@ -32,7 +32,9 @@ export class MapGenerator {
     this.map.clear();
 
     // Generate geodesic sphere with approximately 16,000 hex tiles
-    const subdivisionLevel = 28;
+    // Subdivision levels: 0=12 tiles, 1=42, 2=162, 3=642, 4=2562, 5=10242, 6=40962
+    const subdivisionLevel = 6;
+    console.log('Generating geodesic sphere with subdivision level:', subdivisionLevel);
     this.generateGeodesicSphere(subdivisionLevel);
   }
 
