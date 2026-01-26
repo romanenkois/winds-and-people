@@ -1,14 +1,8 @@
 import { Injectable } from '@angular/core';
+import { GameTileId, GameTile } from '../../map.types';
 
-export interface HexTile {
-  id: number;
-  color: string;
-  type: 'hex' | 'pent';
-  neighbors: number[];
-  x: number;
-  y: number;
-  z: number;
-}
+export type GeneratorHexMapTile = Pick<GameTile, 'id' | 'type' | 'neighbors' | 'x' | 'y' | 'z'>;
+export type GeneratorHexMap = Map<GameTileId, GeneratorHexMapTile>;
 
 interface Vertex {
   x: number;
@@ -25,22 +19,8 @@ interface Triangle {
 @Injectable({
   providedIn: 'root',
 })
-export class MapGenerator {
-  private readonly map = new Map<number, HexTile>();
-
-  public generateNewMap(subdivisionLevel: number) {
-    this.map.clear();
-    const totalTiles = 10 * Math.pow(4, subdivisionLevel) + 2;
-    console.log(
-      'Generating geodesic sphere with subdivision level:',
-      subdivisionLevel,
-      'with total tiles:',
-      totalTiles,
-    );
-    this.generateGeodesicSphere(subdivisionLevel);
-  }
-
-  private generateGeodesicSphere(subdivisionLevel: number): void {
+export class GeneratorHexMapService {
+  public generateGeodesicSphere(subdivisionLevel: number): GeneratorHexMap {
     // Create icosahedron vertices
     const phi = (1 + Math.sqrt(5)) / 2; // Golden ratio
     const vertices: Vertex[] = [
@@ -91,18 +71,24 @@ export class MapGenerator {
     ];
 
     // Subdivide triangles
-    const subdividedTriangles = this.subdivideTriangles(vertices, triangles, subdivisionLevel);
+    const subdividedTriangles = this._subdivideTriangles(vertices, triangles, subdivisionLevel);
 
     // Convert triangular mesh to hex/pent tiles using dual polyhedron
-    this.createHexTilesFromTriangles(vertices, subdividedTriangles);
+    const baseMap = this._createHexTilesFromTriangles(vertices, subdividedTriangles);
+
+    return baseMap;
   }
 
-  private subdivideTriangles(vertices: Vertex[], triangles: Triangle[], level: number): Triangle[] {
+  private _subdivideTriangles(
+    vertices: Vertex[],
+    triangles: Triangle[],
+    level: number,
+  ): Triangle[] {
     let currentTriangles = [...triangles];
     const vertexCache = new Map<string, number>();
 
     vertices.forEach((v, i) => {
-      vertexCache.set(this.getVertexKey(v), i);
+      vertexCache.set(this._getVertexKey(v), i);
     });
 
     for (let i = 0; i < level; i++) {
@@ -114,9 +100,9 @@ export class MapGenerator {
         const v3 = vertices[triangle.v3];
 
         // Get or create midpoint vertices
-        const m1Index = this.getMidpointVertex(v1, v2, vertices, vertexCache);
-        const m2Index = this.getMidpointVertex(v2, v3, vertices, vertexCache);
-        const m3Index = this.getMidpointVertex(v3, v1, vertices, vertexCache);
+        const m1Index = this._getMidpointVertex(v1, v2, vertices, vertexCache);
+        const m2Index = this._getMidpointVertex(v2, v3, vertices, vertexCache);
+        const m3Index = this._getMidpointVertex(v3, v1, vertices, vertexCache);
 
         // Create 4 new triangles from the original
         newTriangles.push(
@@ -133,7 +119,7 @@ export class MapGenerator {
     return currentTriangles;
   }
 
-  private getMidpointVertex(
+  private _getMidpointVertex(
     v1: Vertex,
     v2: Vertex,
     vertices: Vertex[],
@@ -152,7 +138,7 @@ export class MapGenerator {
     mid.y /= length;
     mid.z /= length;
 
-    const key = this.getVertexKey(mid);
+    const key = this._getVertexKey(mid);
 
     if (cache.has(key)) {
       return cache.get(key)!;
@@ -164,7 +150,7 @@ export class MapGenerator {
     return index;
   }
 
-  private getVertexKey(vertex: Vertex): string {
+  private _getVertexKey(vertex: Vertex): string {
     // Round to avoid floating point precision issues
     const precision = 10000000;
     const x = Math.round(vertex.x * precision);
@@ -173,7 +159,7 @@ export class MapGenerator {
     return `${x},${y},${z}`;
   }
 
-  private createHexTilesFromTriangles(vertices: Vertex[], triangles: Triangle[]): void {
+  private _createHexTilesFromTriangles(vertices: Vertex[], triangles: Triangle[]): GeneratorHexMap {
     // Build adjacency information
     const vertexToTriangles = new Map<number, number[]>();
 
@@ -186,6 +172,8 @@ export class MapGenerator {
         vertexToTriangles.get(vIndex)!.push(i);
       });
     }
+
+    const map: GeneratorHexMap = new Map<GameTileId, GeneratorHexMapTile>();
 
     // Create tiles centered at vertices (dual polyhedron)
     for (let vIndex = 0; vIndex < vertices.length; vIndex++) {
@@ -207,9 +195,8 @@ export class MapGenerator {
         });
       }
 
-      const tile: HexTile = {
+      const tile: GeneratorHexMapTile = {
         id: vIndex,
-        color: type === 'pent' ? '#000000' : this.getRandomColor(),
         type,
         neighbors: Array.from(neighborSet),
         x: vertex.x,
@@ -217,24 +204,9 @@ export class MapGenerator {
         z: vertex.z,
       };
 
-      this.map.set(tile.id, tile);
+      map.set(tile.id, tile);
     }
-  }
 
-  private getRandomColor(): string {
-    const letters = '0123456789ABCDEF';
-    let color = '#';
-    for (let i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
-  }
-
-  public getMap(): Map<number, HexTile> {
-    return this.map;
-  }
-
-  public getTile(id: number): HexTile | undefined {
-    return this.map.get(id);
+    return map;
   }
 }
