@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { Biome, HexTile } from './map.types';
+import { Biome, GameTile } from './map.types';
 import { MapGeneratorService } from './map-generation/map-generator.service';
 
 @Injectable({
@@ -8,7 +8,7 @@ import { MapGeneratorService } from './map-generation/map-generator.service';
 export class MapService {
   private readonly _mapGeneratorService = inject(MapGeneratorService);
 
-  private map = new Map<number, HexTile>();
+  private map = new Map<number, GameTile>();
 
   public generateNewMap(subdivisionLevel: number) {
     this.map.clear();
@@ -19,10 +19,10 @@ export class MapService {
       'with total tiles:',
       totalTiles,
     );
-    this.map = this._mapGeneratorService.generateGeodesicSphere(subdivisionLevel);
+    this.map = this._mapGeneratorService.generateMap({ subdivisionLevel }).gameMap;
   }
 
-  public getTitleColor(tile: HexTile, coloringType: 'humidity' | 'temperature' | 'biomes' | 'lithospheric' | never): string {
+  public getTitleColor(tile: GameTile, coloringType: 'humidity' | 'temperature' | 'biomes' | 'lithospheric' | never): string {
     switch (coloringType) {
       case 'humidity':
         return this._getColorByHumidity(tile);
@@ -37,7 +37,7 @@ export class MapService {
     }
   }
 
-  private _getColorByHumidity(tile: HexTile): string {
+  private _getColorByHumidity(tile: GameTile): string {
     const humidity = tile.humidity;
     if (humidity >= 0 && humidity < 20) {
       return '#E0F7FA'; // Very Light Blue
@@ -54,7 +54,7 @@ export class MapService {
     }
   }
 
-  private _getColorByTemperature(tile: HexTile): string {
+  private _getColorByTemperature(tile: GameTile): string {
     const temperature = tile.temperature;
     if (temperature < -10) {
       return '#FFFFFF'; // Polar
@@ -71,7 +71,7 @@ export class MapService {
     }
   }
 
-  private _getColorByBiome(tile: HexTile): string {
+  private _getColorByBiome(tile: GameTile): string {
     switch (tile.lithosphericType) {
       case 'ocean':
         return '#1E90FF';
@@ -95,7 +95,7 @@ export class MapService {
     }
   }
 
-  private _getColorByLithospheric(tile: HexTile): string {
+  private _getColorByLithospheric(tile: GameTile): string {
     return this._generatePlateColor(tile.lithosphericPlateId, tile.lithosphericType);
   }
 
@@ -114,11 +114,11 @@ export class MapService {
     }
   }
 
-  public getMap(): Map<number, HexTile> {
+  public getMap(): Map<number, GameTile> {
     return this.map;
   }
 
-  public getTile(id: number): HexTile | undefined {
+  public getTile(id: number): GameTile | undefined {
     return this.map.get(id);
   }
 }

@@ -16,7 +16,7 @@ export class GeneratorLithosphericMapService {
     const numberOfPlates = 20;
     const percentOfOceanicPlates = 0.7;
     const minimumPlateSize = 10;
-    const minSeedDistance = 15;
+    const minSeedDistance = 200;
 
     const tileIds = Array.from(baseMap.keys());
     const seeds: number[] = [];
@@ -231,7 +231,7 @@ export class GeneratorLithosphericMapService {
   private _isFarEnough(
     id: number,
     seeds: number[],
-    map: GeneratorLithosphericMap,
+    map: GeneratorHexMap,
     minDist: number,
   ): boolean {
     if (seeds.length === 0) return true;

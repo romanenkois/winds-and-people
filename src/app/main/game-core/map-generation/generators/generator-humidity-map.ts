@@ -2,16 +2,27 @@ import { Injectable } from '@angular/core';
 import { GameTile, GameTileId } from '../../map.types';
 import { GeneratorTemperatureMap } from './generator-temperature-map';
 
-export type GeneratorHumidityMapTile = Pick<GameTile, 'id'>;
+export type GeneratorHumidityMapTile = Pick<
+  GameTile,
+  | 'id'
+  | 'type'
+  | 'neighbors'
+  | 'x'
+  | 'y'
+  | 'z'
+  | 'lithosphericPlateId'
+  | 'lithosphericType'
+  | 'elevation'
+  | 'temperature'
+  | 'humidity'
+>;
 export type GeneratorHumidityMap = Map<GameTileId, GeneratorHumidityMapTile>;
 
 @Injectable({
   providedIn: 'root',
 })
 export class GeneratorHumidityMapService {
-  public generateHumidity(
-    map: GeneratorTemperatureMap,
-  ): GeneratorHumidityMap {
+  public generateHumidity(map: GeneratorTemperatureMap): GeneratorHumidityMap {
     const newMap = new Map<GameTileId, GeneratorHumidityMapTile>();
 
     map.forEach((tile, id) => {

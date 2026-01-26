@@ -2,7 +2,7 @@ import { Injectable, NgZone, OnDestroy, inject } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { MapGeneratorService } from './map-generation/map-generator.service';
-import { HexTile } from './map.types';
+import { GameTile } from './map.types';
 import { MapService } from './map.service';
 
 @Injectable()
@@ -20,8 +20,8 @@ export class GameSceneService implements OnDestroy {
 
   private hexMesh!: THREE.InstancedMesh;
   private pentMesh!: THREE.InstancedMesh;
-  private hexTilesData: HexTile[] = [];
-  private pentTilesData: HexTile[] = [];
+  private hexTilesData: GameTile[] = [];
+  private pentTilesData: GameTile[] = [];
 
   private canvas!: HTMLCanvasElement;
 
@@ -86,7 +86,7 @@ export class GameSceneService implements OnDestroy {
 
   private renderHexSphere(): void {
     console.log('Rendering hex sphere...');
-    const map: Map<number, HexTile> = this._mapService.getMap();
+    const map: Map<number, GameTile> = this._mapService.getMap();
     const radius = 1;
 
     // Calculate average distance to nearest neighbor for tile sizing
@@ -129,7 +129,7 @@ export class GameSceneService implements OnDestroy {
     });
 
     // Helper function to create and populate instanced mesh
-    const createInstancedMesh = (tiles: HexTile[], segments: number): THREE.InstancedMesh => {
+    const createInstancedMesh = (tiles: GameTile[], segments: number): THREE.InstancedMesh => {
       const geometry = new THREE.CircleGeometry(tileRadius, segments);
       const mesh = new THREE.InstancedMesh(geometry, material, tiles.length);
       const dummy = new THREE.Object3D();
@@ -211,7 +211,7 @@ export class GameSceneService implements OnDestroy {
       const instanceId = intersection.instanceId;
 
       if (instanceId !== undefined) {
-        let clickedTile: HexTile | undefined;
+        let clickedTile: GameTile | undefined;
 
         if (intersection.object === this.hexMesh) {
           clickedTile = this.hexTilesData[instanceId];

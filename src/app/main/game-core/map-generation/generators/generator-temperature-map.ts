@@ -22,7 +22,7 @@ export type GeneratorTemperatureMap = Map<number, GeneratorTemperatureMapTile>;
 })
 export class GeneratorTemperatureMapService {
   public generateTemperature(map: GeneratorElevationMap): GeneratorTemperatureMap {
-    const newMap = new Map<number, Omit<GeneratorTemperatureMapTile, 'temperature'>>();
+    const newMap = new Map<number, GeneratorTemperatureMapTile>();
 
     map.forEach((tile, id) => {
       // Simple model: temperature decreases with elevation and latitude (y coordinate)
