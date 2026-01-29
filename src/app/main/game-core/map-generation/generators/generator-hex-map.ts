@@ -73,6 +73,9 @@ export class GeneratorHexMapService {
     // Subdivide triangles
     const subdividedTriangles = this._subdivideTriangles(vertices, triangles, subdivisionLevel);
 
+    // Relax vertices (Spring/Laplacian smoothing) to reduce distortion
+    this._relaxVertices(vertices, subdividedTriangles, 5);
+
     // Convert triangular mesh to hex/pent tiles using dual polyhedron
     const baseMap = this._createHexTilesFromTriangles(vertices, subdividedTriangles);
 
@@ -117,6 +120,52 @@ export class GeneratorHexMapService {
     }
 
     return currentTriangles;
+  }
+
+  private _relaxVertices(vertices: Vertex[], triangles: Triangle[], iterations: number): void {
+    for (let iter = 0; iter < iterations; iter++) {
+      const adjacency = new Map<number, Set<number>>();
+      for (const tri of triangles) {
+        if (!adjacency.has(tri.v1)) adjacency.set(tri.v1, new Set());
+        if (!adjacency.has(tri.v2)) adjacency.set(tri.v2, new Set());
+        if (!adjacency.has(tri.v3)) adjacency.set(tri.v3, new Set());
+
+        adjacency.get(tri.v1)!.add(tri.v2).add(tri.v3);
+        adjacency.get(tri.v2)!.add(tri.v1).add(tri.v3);
+        adjacency.get(tri.v3)!.add(tri.v1).add(tri.v2);
+      }
+
+      const newPositions = new Map<number, Vertex>();
+
+      adjacency.forEach((neighbors, vIndex) => {
+        let sumX = 0;
+        let sumY = 0;
+        let sumZ = 0;
+
+        neighbors.forEach((nIndex) => {
+          sumX += vertices[nIndex].x;
+          sumY += vertices[nIndex].y;
+          sumZ += vertices[nIndex].z;
+        });
+
+        const count = neighbors.size;
+        const avgX = sumX / count;
+        const avgY = sumY / count;
+        const avgZ = sumZ / count;
+
+        const length = Math.sqrt(avgX ** 2 + avgY ** 2 + avgZ ** 2);
+
+        newPositions.set(vIndex, {
+          x: avgX / length,
+          y: avgY / length,
+          z: avgZ / length,
+        });
+      });
+
+      newPositions.forEach((pos, vIndex) => {
+        vertices[vIndex] = pos;
+      });
+    }
   }
 
   private _getMidpointVertex(
