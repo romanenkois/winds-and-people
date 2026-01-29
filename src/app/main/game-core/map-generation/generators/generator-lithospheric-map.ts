@@ -79,28 +79,39 @@ export class GeneratorLithosphericMapService {
       for (const plate of plates) {
         if (plate.frontier.size === 0) continue;
 
-        // Determine growth amount (1-5 tiles)
-        const expansionCount = Math.floor(Math.random() * 5) + 1;
+        // Instead of limited expansion count, we try to grow a percentage of the frontier.
+        // This ensures broad plates grow at the same linear speed as narrow plates (tentacles).
+        // A tentacle with 1 frontier grows 1 tile. A blob with 100 frontier grows ~50 tiles.
+        // Both advance the "front" by roughly the same distance.
         const candidates = Array.from(plate.frontier);
+        const seedTile = baseMap.get(plate.seedId);
 
-        // Random selection from frontier
-        const selectedIndices = new Set<number>();
-        // Efficiency note: if candidates.length is small, we pick mostly all.
-        // If large, we pick random few.
-        while (selectedIndices.size < expansionCount && selectedIndices.size < candidates.length) {
-          selectedIndices.add(Math.floor(Math.random() * candidates.length));
-        }
+        for (const tileId of candidates) {
+          // 40% chance to skip this tile this turn -> controls overall speed / noise.
+          if (Math.random() > 0.2) continue;
 
-        for (const idx of selectedIndices) {
-          const tileId = candidates[idx];
-          let myNeighbors = 0;
           const tile = baseMap.get(tileId);
-          tile?.neighbors.forEach((n) => {
+          if (!tile || !seedTile) continue;
+
+          let myNeighbors = 0;
+          tile.neighbors.forEach((n) => {
             if (assignedTiles.get(n) === plate.id) myNeighbors++;
           });
 
-          // Weight formula: prioritization by connectivity + random input
-          const weight = myNeighbors * 10 + Math.random();
+          // Distance penalty logic:
+          // We calculate hex distance from the seed.
+          // Hex distance = max(abs(dx), abs(dy), abs(dz))
+          const dist = Math.max(
+            Math.abs(tile.x - seedTile.x),
+            Math.abs(tile.y - seedTile.y),
+            Math.abs(tile.z - seedTile.z)
+          );
+
+          // Weight formula:
+          // 1. Prioritize connectivity (myNeighbors * 10) - encourages filling local holes.
+          // 2. Penalize distance (dist * 0.5) - prevents long tentacles stretching far from center.
+          //    If a plate is very far, it will have negative weight, losing to any closer plate.
+          const weight = myNeighbors * 10 - dist * 0.3 + Math.random();
 
           if (!bids.has(tileId)) bids.set(tileId, []);
           bids.get(tileId)!.push({ plateId: plate.id, weight });

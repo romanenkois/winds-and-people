@@ -36,7 +36,7 @@ export class GameSceneService implements OnDestroy {
     this.setupControls();
 
     // Generate map
-    this._mapService.generateNewMap(8);
+    this._mapService.generateNewMap(4);
     this.renderHexSphere();
 
     // Start animation loop outside Angular
