@@ -22,10 +22,12 @@ export class MapService {
     this.map = this._mapGeneratorService.generateMap({ subdivisionLevel }).gameMap;
   }
 
-  public getTitleColor(tile: GameTile, coloringType: 'humidity' | 'temperature' | 'biomes' | 'lithospheric' | never): string {
+  public getTitleColor(tile: GameTile, coloringType: 'humidity' | 'elevation' | 'temperature' | 'biomes' | 'lithospheric' | never): string {
     switch (coloringType) {
       case 'humidity':
         return this._getColorByHumidity(tile);
+      case 'elevation':
+        return this._getColorByElevation(tile);
       case 'temperature':
         return this._getColorByTemperature(tile);
       case 'biomes':
@@ -54,6 +56,21 @@ export class MapService {
     }
   }
 
+  private _getColorByElevation(tile: GameTile): string {
+    const elevation = tile.elevation;
+    if (elevation < -200) {
+      return '#000080'; // Deep Ocean
+    } else if (elevation >= -200 && elevation < 0) {
+      return '#0000CD'; // Shallow Ocean
+    } else if (elevation >= 0 && elevation < 200) {
+      return '#228B22'; // Lowland
+    } else if (elevation >= 200 && elevation < 1000) {
+      return '#8B4513'; // Highland
+    } else {
+      return '#A9A9A9'; // Mountain
+    }
+  }
+
   private _getColorByTemperature(tile: GameTile): string {
     const temperature = tile.temperature;
     if (temperature < -10) {
@@ -74,19 +91,38 @@ export class MapService {
   private _getColorByBiome(tile: GameTile): string {
     switch (tile.lithosphericType) {
       case 'ocean':
-        return '#1E90FF';
+        switch (tile.biome) {
+          case 'deep ocean':
+            return '#000080';
+          case 'shallow ocean':
+            return '#0000CD';
+          case 'freezing ocean':
+            return '#ADD8E6';
+          case 'arctic ocean':
+            return '#E0FFFF';
+          case 'coral reef':
+            return '#5cecff';
+          default:
+            return '#000000'; // Black as fallback
+        }
       case 'land':
         switch (tile.biome) {
           case 'plains':
-            return '#7CFC00';
+            return '#afd392';
           case 'forest':
-            return '#228B22';
+            return '#0a7e0a';
           case 'desert':
-            return '#EDC9AF';
+            return '#f1c19f';
+          case 'jungle':
+            return '#79d43c';
           case 'mountain':
-            return '#A9A9A9';
+            return '#575656';
+          case 'taiga':
+            return '#2d522d';
           case 'tundra':
             return '#E0FFFF';
+          case 'arctic desert':
+            return '#ffffff';
           default:
             return '#000000'; // Black as fallback
         }

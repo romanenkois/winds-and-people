@@ -28,7 +28,7 @@ export class GeneratorElevationMapService {
       if (tile.lithosphericType === 'ocean') {
         elevation = -Math.random() * 1000; // Ocean depth between 0 and -1000
       } else {
-        elevation = Math.random() * 2000; // Land elevation between 0 and 2000
+        elevation = Math.random() * 1000; // Land elevation between 0 and 1000
       }
 
       newMap.set(id, {

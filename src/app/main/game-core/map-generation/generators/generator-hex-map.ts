@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GameTileId, GameTile } from '../../map.types';
 
-export type GeneratorHexMapTile = Pick<GameTile, 'id' | 'type' | 'neighbors' | 'x' | 'y' | 'z'>;
+export type GeneratorHexMapTile = Pick<GameTile, 'id' | 'type' | 'neighbors' | 'x' | 'y' | 'z' | 'corners'>;
 export type GeneratorHexMap = Map<GameTileId, GeneratorHexMapTile>;
 
 interface Vertex {
@@ -244,6 +244,61 @@ export class GeneratorHexMapService {
         });
       }
 
+      // Calculate corners (centroids of adjacent triangles) and sort them angularly
+      const centroids: { pos: Vertex; angle: number }[] = [];
+
+      // Calculate basis for sorting
+      // Normal is the vertex itself (unit sphere)
+      const normal = vertex;
+      // Find a tangent vector. If normal is roughly Y, use X. Else use Y.
+      let tangent = { x: 0, y: 1, z: 0 };
+      if (Math.abs(normal.y) > 0.9) {
+        tangent = { x: 1, y: 0, z: 0 };
+      }
+
+      // Orthonormalize tangent: t = t - n * (t . n)
+      const dot = tangent.x * normal.x + tangent.y * normal.y + tangent.z * normal.z;
+      tangent.x -= normal.x * dot;
+      tangent.y -= normal.y * dot;
+      tangent.z -= normal.z * dot;
+
+      // Normalize tangent
+      const tLen = Math.sqrt(tangent.x ** 2 + tangent.y ** 2 + tangent.z ** 2);
+      tangent.x /= tLen;
+      tangent.y /= tLen;
+      tangent.z /= tLen;
+
+      // Bitangent
+      const bitangent = {
+        x: normal.y * tangent.z - normal.z * tangent.y,
+        y: normal.z * tangent.x - normal.x * tangent.z,
+        z: normal.x * tangent.y - normal.y * tangent.x,
+      };
+
+      for (const triIndex of adjacentTriangles) {
+        const tri = triangles[triIndex];
+        const centroid = this._calculateTriangleCentroid(tri, vertices);
+
+        // Vector from vertex to centroid
+        const vec = {
+          x: centroid.x - vertex.x,
+          y: centroid.y - vertex.y,
+          z: centroid.z - vertex.z,
+        };
+
+        // Project to plane
+        const u = vec.x * tangent.x + vec.y * tangent.y + vec.z * tangent.z;
+        const v = vec.x * bitangent.x + vec.y * bitangent.y + vec.z * bitangent.z;
+
+        const angle = Math.atan2(v, u);
+
+        centroids.push({ pos: centroid, angle });
+      }
+
+      // Sort by angle to ensure correct winding order
+      centroids.sort((a, b) => a.angle - b.angle);
+      const corners = centroids.map((c) => c.pos);
+
       const tile: GeneratorHexMapTile = {
         id: vIndex,
         type,
@@ -251,11 +306,23 @@ export class GeneratorHexMapService {
         x: vertex.x,
         y: vertex.y,
         z: vertex.z,
+        corners,
       };
 
       map.set(tile.id, tile);
     }
 
     return map;
+  }
+
+  private _calculateTriangleCentroid(tri: Triangle, vertices: Vertex[]): Vertex {
+    const v1 = vertices[tri.v1];
+    const v2 = vertices[tri.v2];
+    const v3 = vertices[tri.v3];
+    return {
+      x: (v1.x + v2.x + v3.x) / 3,
+      y: (v1.y + v2.y + v3.y) / 3,
+      z: (v1.z + v2.z + v3.z) / 3,
+    };
   }
 }

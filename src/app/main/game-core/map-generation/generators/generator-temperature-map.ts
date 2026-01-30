@@ -26,10 +26,11 @@ export class GeneratorTemperatureMapService {
 
     map.forEach((tile, id) => {
       // Simple model: temperature decreases with elevation and latitude (y coordinate)
-      const latitudeFactor = 1 - Math.abs(tile.y); // y ranges from -1 to 1
-      const baseTemp = 30 * latitudeFactor; // Max temp at equator ~30C
+      const latitudeFactor = 0.95 - Math.abs(tile.y); // y ranges from -1 to 1
+      const baseTemp = 35 * latitudeFactor; // Max temp at equator ~30C
       const elevationEffect = Math.max(0, tile.elevation) * 0.0065; // Approx lapse rate: 6.5C per 1000m
-      const temperature = baseTemp - elevationEffect;
+      const depthEffect = tile.elevation < 0 ? Math.abs(tile.elevation) * 0.001 : 0; // Oceans get colder with depth
+      const temperature = baseTemp - elevationEffect - depthEffect;
 
       newMap.set(id, {
         ...tile,

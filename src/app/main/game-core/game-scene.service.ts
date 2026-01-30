@@ -18,12 +18,13 @@ export class GameSceneService implements OnDestroy {
   private mouse = new THREE.Vector2();
   private animationId?: number;
 
-  private hexMesh!: THREE.InstancedMesh;
-  private pentMesh!: THREE.InstancedMesh;
-  private hexTilesData: GameTile[] = [];
-  private pentTilesData: GameTile[] = [];
+  private hexMesh!: THREE.Mesh;
+  private faceIndexToTileIdMap: number[] = [];
 
   private canvas!: HTMLCanvasElement;
+
+  mapColoringMode: 'lithospheric' | 'elevation' | 'temperature' | 'humidity' | 'biomes' = 'biomes';
+  mapSize = 7;
 
   constructor() {}
 
@@ -36,7 +37,7 @@ export class GameSceneService implements OnDestroy {
     this.setupControls();
 
     // Generate map
-    this._mapService.generateNewMap(4);
+    this._mapService.generateNewMap(this.mapSize);
     this.renderHexSphere();
 
     // Start animation loop outside Angular
@@ -86,147 +87,83 @@ export class GameSceneService implements OnDestroy {
 
   private renderHexSphere(): void {
     console.log('Rendering hex sphere...');
-    const map: Map<number, GameTile> = this._mapService.getMap();
+    const map = this._mapService.getMap();
     const radius = 1;
 
-    // Calculate average distance to nearest neighbor for tile sizing
-    let avgDistance = 0;
-    let count = 0;
-    map.forEach((tile) => {
-      if (tile.neighbors.length > 0) {
-        const neighbor = map.get(tile.neighbors[0]);
-        if (neighbor) {
-          const dx = tile.x - neighbor.x;
-          const dy = tile.y - neighbor.y;
-          const dz = tile.z - neighbor.z;
-          avgDistance += Math.sqrt(dx * dx + dy * dy + dz * dz);
-          count++;
-        }
-      }
-    });
-    avgDistance = (avgDistance / count) * radius;
-
-    // Size tiles so they touch at edges (inscribed circle radius for regular polygon)
-    const tileRadius = avgDistance / 2;
-
-    // Separate tiles by type
-    this.hexTilesData = [];
-    this.pentTilesData = [];
-
-    map.forEach((tile) => {
-      if (tile.type === 'hex') {
-        this.hexTilesData.push(tile);
-      } else {
-        this.pentTilesData.push(tile);
-      }
-    });
+    const positions: number[] = [];
+    const colors: number[] = [];
+    this.faceIndexToTileIdMap = [];
 
     const material = new THREE.MeshStandardMaterial({
       roughness: 0.6,
       metalness: 0.1,
       flatShading: true,
+      vertexColors: true,
       side: THREE.DoubleSide,
     });
 
-    // Helper function to create and populate instanced mesh
-    const createInstancedMesh = (tiles: GameTile[], segments: number): THREE.InstancedMesh => {
-      const geometry = new THREE.CircleGeometry(tileRadius, segments);
-      const mesh = new THREE.InstancedMesh(geometry, material, tiles.length);
-      const dummy = new THREE.Object3D();
-      const color = new THREE.Color();
+    map.forEach((tile) => {
+      if (!tile.corners) return;
 
-      tiles.forEach((tile, i) => {
-        // Position on sphere surface
-        const position = new THREE.Vector3(tile.x, tile.y, tile.z);
-        position.multiplyScalar(radius);
-        dummy.position.copy(position);
+      // Center of the tile
+      const center = new THREE.Vector3(tile.x, tile.y, tile.z).multiplyScalar(radius);
+      // Colors
+      const colorHex = this._mapService.getTitleColor(tile, this.mapColoringMode);
+      const color = new THREE.Color(colorHex);
 
-        // Orient the tile to face outward from sphere center
-        dummy.lookAt(0, 0, 0);
-        dummy.rotateY(Math.PI);
+      const corners = tile.corners.map((c) =>
+        new THREE.Vector3(c.x, c.y, c.z).multiplyScalar(radius),
+      );
 
-        // Align tile rotation with first neighbor for proper edge connection
-        if (tile.neighbors.length > 0) {
-          const neighbor = map.get(tile.neighbors[0]);
-          if (neighbor) {
-            const neighborPos = new THREE.Vector3(neighbor.x, neighbor.y, neighbor.z);
-            neighborPos.multiplyScalar(radius);
+      for (let i = 0; i < corners.length; i++) {
+        const p1 = corners[i];
+        const p2 = corners[(i + 1) % corners.length];
 
-            // Calculate direction to first neighbor in local tile space
-            const toNeighbor = neighborPos.clone().sub(dummy.position);
-            const localUp = position.clone().normalize();
+        // Triangle: Center -> P1 -> P2
+        positions.push(center.x, center.y, center.z);
+        positions.push(p1.x, p1.y, p1.z);
+        positions.push(p2.x, p2.y, p2.z);
 
-            // Project neighbor direction onto tile plane
-            const tangent = toNeighbor
-              .clone()
-              .sub(localUp.clone().multiplyScalar(toNeighbor.dot(localUp)));
-            tangent.normalize();
+        // Vertex colors (all same for the tile)
+        colors.push(color.r, color.g, color.b);
+        colors.push(color.r, color.g, color.b);
+        colors.push(color.r, color.g, color.b);
 
-            // Calculate rotation angle to align edge with neighbor
-            const angle = Math.atan2(tangent.y, tangent.x);
-            dummy.rotateZ(-angle + Math.PI / 2);
-          }
-        }
+        // Map face index to tile ID
+        this.faceIndexToTileIdMap.push(tile.id);
+      }
+    });
 
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-        mesh.setColorAt(i, color.set(this._mapService.getTitleColor(tile, 'lithospheric')));
-      });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.computeVertexNormals();
 
-      return mesh;
-    };
-
-    // Create and add meshes
-    if (this.hexTilesData.length > 0) {
-      this.hexMesh = createInstancedMesh(this.hexTilesData, 6);
-      this.scene.add(this.hexMesh);
-    }
-
-    if (this.pentTilesData.length > 0) {
-      this.pentMesh = createInstancedMesh(this.pentTilesData, 5);
-      this.scene.add(this.pentMesh);
-    }
+    this.hexMesh = new THREE.Mesh(geometry, material);
+    this.scene.add(this.hexMesh);
   }
 
   public onCanvasClick(event: MouseEvent): void {
     const rect = this.canvas.getBoundingClientRect();
 
-    // Calculate mouse position in normalized device coordinates (-1 to +1)
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // Update raycaster with camera and mouse position
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // Calculate objects intersecting the picking ray
-    // We only need to check the instanced meshes
-    const meshesToCheck: THREE.Object3D[] = [];
-    if (this.hexMesh) meshesToCheck.push(this.hexMesh);
-    if (this.pentMesh) meshesToCheck.push(this.pentMesh);
-
-    const intersects = this.raycaster.intersectObjects(meshesToCheck);
+    const intersects = this.raycaster.intersectObject(this.hexMesh);
 
     if (intersects.length > 0) {
       const intersection = intersects[0];
-      const instanceId = intersection.instanceId;
+      const faceIndex = intersection.faceIndex;
 
-      if (instanceId !== undefined) {
-        let clickedTile: GameTile | undefined;
-
-        if (intersection.object === this.hexMesh) {
-          clickedTile = this.hexTilesData[instanceId];
-        } else if (intersection.object === this.pentMesh) {
-          clickedTile = this.pentTilesData[instanceId];
-        }
+      if (faceIndex !== undefined && faceIndex !== null) {
+        const tileId = this.faceIndexToTileIdMap[faceIndex];
+        const clickedTile = this._mapService.getMap().get(tileId);
 
         if (clickedTile) {
           console.log('Clicked tile:', clickedTile);
-          // Optional: Visual feedback
-          // const color = new THREE.Color().set(
-          //   this._mapService.getTitleColor(clickedTile),
-          // );
-          // (intersection.object as THREE.InstancedMesh).setColorAt(instanceId, color);
-          (intersection.object as THREE.InstancedMesh).instanceColor!.needsUpdate = true;
+          // TODO: Implement visual feedback highlighting for single mesh
         }
       }
     }

@@ -48,7 +48,7 @@ export class MapGeneratorService {
     const biomeMap = this._generatorBiomesMapService.generateBiomes(humidityMap);
     console.log('Biome Map generated');
 
-    newGameScene.gameMap = lithosphericPlatesMap as unknown as GameScene['gameMap'];
+    newGameScene.gameMap = biomeMap as unknown as GameScene['gameMap'];
 
     return newGameScene as GameScene;
   }

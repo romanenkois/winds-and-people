@@ -15,7 +15,7 @@ export class GeneratorBiomesMapService {
     map.forEach((tile, id) => {
       newMap.set(id, {
         ...tile,
-        biome: this._getRandomBiome(tile as GameTile),
+        biome: this._determineBiome(tile as GameTile),
       });
     });
 
@@ -30,5 +30,44 @@ export class GeneratorBiomesMapService {
 
     const index = Math.floor(Math.random() * biomes.length);
     return biomes[index];
+  }
+
+  private _determineBiome(tile: GameTile): Biome {
+    if (tile.lithosphericType === 'ocean') {
+      if (tile.temperature < 0) {
+        return 'arctic ocean';
+      } else if (tile.temperature < 5) {
+        return 'freezing ocean';
+      } else if (tile.temperature > 30 && tile.elevation > -100) {
+        return 'coral reef';
+      } else if (tile.elevation < -700) {
+        return 'deep ocean';
+      } else {
+        return 'shallow ocean';
+      }
+    }
+    if (tile.lithosphericType === 'land') {
+      if (tile.elevation > 1000) {
+        return 'mountain';
+      }
+      if (tile.temperature < 0) {
+       return 'arctic desert';
+      } else if (tile.temperature < 5) {
+        return 'tundra';
+      } else if (tile.temperature < 10) {
+        return 'taiga';
+      } else if (tile.temperature < 20) {
+        return 'forest';
+      } else if (tile.temperature < 28) {
+        if (tile.humidity < 50) {
+          return 'desert';
+        } else {
+          return 'jungle';
+        }
+      } else {
+        return 'desert';
+      }
+    }
+    return 'ocean';
   }
 }

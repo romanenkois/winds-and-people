@@ -23,6 +23,7 @@ export interface GameTile {
   x: number;
   y: number;
   z: number;
+  corners?: { x: number; y: number; z: number }[];
 
   lithosphericPlateId: number;
   lithosphericType: LithosphericType;
@@ -36,6 +37,6 @@ export interface GameTile {
 
 export type TileType = 'hex' | 'pent';
 export type LithosphericType = 'ocean' | 'land';
-export type Biome = LandBiome | OceanicBiome;
 export type LandBiome = (typeof gameConfig.biomes.landBiomes)[number];
 export type OceanicBiome = (typeof gameConfig.biomes.oceanBiomes)[number];
+export type Biome = LandBiome | OceanicBiome;
