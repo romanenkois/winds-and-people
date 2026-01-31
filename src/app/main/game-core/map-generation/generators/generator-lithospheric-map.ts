@@ -1,10 +1,18 @@
 import { Injectable } from '@angular/core';
-import { GameTile, GameTileId, LithosphericType } from '../../map.types';
+import { GameTile, GameTileId, LithosphericPlatesMap, LithosphericType } from '../../map.types';
 import { GeneratorHexMap } from './generator-hex-map';
 
 export type GeneratorLithosphericHexTile = Pick<
   GameTile,
-  'id' | 'type' | 'neighbors' | 'x' | 'y' | 'z' | 'lithosphericPlateId' | 'lithosphericType'
+  | 'id'
+  | 'type'
+  | 'neighbors'
+  | 'x'
+  | 'y'
+  | 'z'
+  | 'lithosphericPlateId'
+  | 'lithosphericType'
+  | 'lithosphericActivityStress'
 >;
 export type GeneratorLithosphericMap = Map<GameTileId, GeneratorLithosphericHexTile>;
 
@@ -12,11 +20,14 @@ export type GeneratorLithosphericMap = Map<GameTileId, GeneratorLithosphericHexT
   providedIn: 'root',
 })
 export class GeneratorLithosphericMapService {
-  public generateLithosphericPlates(baseMap: GeneratorHexMap): GeneratorLithosphericMap {
-    const numberOfPlates = 20;
+  public generateLithosphericPlates(baseMap: GeneratorHexMap): {
+    map: GeneratorLithosphericMap;
+    lithosphericPlatesMap: LithosphericPlatesMap;
+  } {
+    const numberOfPlates = 15;
     const percentOfOceanicPlates = 0.7;
     const minimumPlateSize = 10;
-    const minSeedDistance = 200;
+    const minSeedDistance = 10;
 
     const tileIds = Array.from(baseMap.keys());
     const seeds: number[] = [];
@@ -46,15 +57,34 @@ export class GeneratorLithosphericMapService {
       type: LithosphericType;
       tiles: Set<number>;
       frontier: Set<number>;
+      movementVector: { x: number; y: number; z: number };
     };
 
-    const plates: Plate[] = shuffledSeeds.map((seed, index) => ({
-      id: index,
-      seedId: seed,
-      type: index < oceanCount ? 'ocean' : 'land',
-      tiles: new Set([seed]),
-      frontier: new Set(),
-    }));
+    const plates: Plate[] = shuffledSeeds.map((seed, index) => {
+      // 1. Random Direction
+      const dx = Math.random() * 2 - 1;
+      const dy = Math.random() * 2 - 1;
+      const dz = Math.random() * 2 - 1;
+      const dirLen = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+      // 2. Non-linear speed distribution (Bias towards calm)
+      // Cubed random pushes distribution heavily towards 0, making fast plates rare.
+      // Speed ranges from ~0.1 to 1.0 relative to max.
+      const speed = Math.pow(Math.random(), 3) * 0.9 + 0.1;
+
+      return {
+        id: index,
+        seedId: seed,
+        type: index < oceanCount ? 'ocean' : 'land',
+        tiles: new Set([seed]),
+        frontier: new Set(),
+        movementVector: {
+          x: (dx / dirLen) * speed,
+          y: (dy / dirLen) * speed,
+          z: (dz / dirLen) * speed,
+        },
+      };
+    });
 
     const assignedTiles = new Map<number, number>(); // tileId -> plateId
     plates.forEach((p) => assignedTiles.set(p.seedId, p.id));
@@ -87,8 +117,8 @@ export class GeneratorLithosphericMapService {
         const seedTile = baseMap.get(plate.seedId);
 
         for (const tileId of candidates) {
-          // 40% chance to skip this tile this turn -> controls overall speed / noise.
-          if (Math.random() > 0.2) continue;
+          // chance to skip this tile this turn -> controls overall speed / noise.
+          if (Math.random() > 0.1) continue;
 
           const tile = baseMap.get(tileId);
           if (!tile || !seedTile) continue;
@@ -104,7 +134,7 @@ export class GeneratorLithosphericMapService {
           const dist = Math.max(
             Math.abs(tile.x - seedTile.x),
             Math.abs(tile.y - seedTile.y),
-            Math.abs(tile.z - seedTile.z)
+            Math.abs(tile.z - seedTile.z),
           );
 
           // Weight formula:
@@ -221,7 +251,125 @@ export class GeneratorLithosphericMapService {
       }
     }
 
-    // 5. Construct Result
+    // 5. Calculate Stress
+    // Stress > 0 -> Collision / Convergent
+    // Stress < 0 -> Divergent
+    // Stress ~ 0 -> Transform / Sliding
+    const tileStress = new Map<number, number>();
+
+    for (const [id, assignedPid] of assignedTiles) {
+      let stress = 0;
+      const tile = baseMap.get(id);
+      const myPlate = plates[assignedPid];
+
+      if (tile && myPlate) {
+        tile.neighbors.forEach((nid) => {
+          const neighborPid = assignedTiles.get(nid);
+          if (neighborPid !== undefined && neighborPid !== assignedPid) {
+            const neighborPlate = plates[neighborPid];
+            const neighborTile = baseMap.get(nid);
+
+            if (neighborTile && neighborPlate) {
+              const dx = neighborTile.x - tile.x;
+              const dy = neighborTile.y - tile.y;
+              const dz = neighborTile.z - tile.z;
+              const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const nz = dz / dist;
+
+              const vRelX = myPlate.movementVector.x - neighborPlate.movementVector.x;
+              const vRelY = myPlate.movementVector.y - neighborPlate.movementVector.y;
+              const vRelZ = myPlate.movementVector.z - neighborPlate.movementVector.z;
+
+              // Project relative velocity onto the direction to neighbor
+              const closingSpeed = vRelX * nx + vRelY * ny + vRelZ * nz;
+
+              // STABILIZATION & CALMING:
+              // Use a power function to suppress low-intensity (sliding) noise
+              // and dampen extreme high-speed head-on collisions.
+              const speedSign = Math.sign(closingSpeed);
+              const speedMag = Math.abs(closingSpeed);
+              // Suppress values closer to 0 (sliding), emphasize direct hits
+              const stableSpeed = speedSign * Math.pow(speedMag, 1.5);
+
+              // Mass Factor: Use Log instead of Sqrt for better scaling stability on huge maps
+              // Prevents massive plates from producing excessively extreme stress
+              const sizeFactor = Math.log(
+                Math.min(myPlate.tiles.size, neighborPlate.tiles.size) + Math.E,
+              );
+
+              // Apply a global calming factor
+              const globalCalming = 0.5;
+
+              stress += stableSpeed * sizeFactor * globalCalming;
+            }
+          }
+        });
+      }
+      tileStress.set(id, stress);
+    }
+
+    // 6. Spread Stress (Spread Collisions)
+    // Land plates propagate collision stress further (Simulation of orogeny)
+    // Ocean plates propagate less (Subduction is cleaner)
+    const currentStress = new Map<number, number>(tileStress);
+    const activeBorderTiles = Array.from(tileStress.entries()).filter(
+      ([_, s]) => Math.abs(s) > 0.01,
+    );
+
+    for (const [sourceId, sourceStress] of activeBorderTiles) {
+      const sourceTile = baseMap.get(sourceId);
+      if (!sourceTile) continue;
+
+      const pid = assignedTiles.get(sourceId)!;
+      const plate = plates[pid];
+      // Decay factor: Land propagates further (lower k), Ocean stops closer (higher k)
+      // Since coordinates are -1 to 1, distance 0.1 is significant (~5% of world)
+      const k = plate.type === 'land' ? 15 : 40;
+      const maxDist = plate.type === 'land' ? 0.3 : 0.1;
+
+      const queue: number[] = [sourceId];
+      const visited = new Set<number>([sourceId]);
+
+      let head = 0;
+      while (head < queue.length) {
+        const currId = queue[head++];
+        const currTile = baseMap.get(currId);
+        if (!currTile) continue;
+
+        for (const nid of currTile.neighbors) {
+          if (assignedTiles.get(nid) !== pid) continue; // Stay in plate
+          if (visited.has(nid)) continue;
+
+          const nTile = baseMap.get(nid);
+          if (!nTile) continue;
+
+          const dx = nTile.x - sourceTile.x;
+          const dy = nTile.y - sourceTile.y;
+          const dz = nTile.z - sourceTile.z;
+          const physicalDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          if (physicalDist > maxDist) continue;
+
+          // Exponential decay
+          const factor = Math.exp(-physicalDist * k);
+          const newStress = sourceStress * factor;
+          const existing = currentStress.get(nid) || 0;
+
+          if (Math.abs(newStress) > Math.abs(existing)) {
+            currentStress.set(nid, newStress);
+          }
+
+          visited.add(nid);
+          queue.push(nid);
+        }
+      }
+    }
+
+
+    // 7. Construct Result
     const resultMap = new Map<GameTileId, GeneratorLithosphericHexTile>();
     for (const [id, base] of baseMap) {
       const pid = assignedTiles.get(id)!;
@@ -233,10 +381,23 @@ export class GeneratorLithosphericMapService {
         ...base,
         lithosphericPlateId: pid,
         lithosphericType: finalType,
+        lithosphericActivityStress: currentStress.get(id) || 0,
       });
     }
 
-    return resultMap;
+    const lithosphericPlatesMap: LithosphericPlatesMap = new Map();
+    plates.forEach((p) => {
+      if (p.tiles.size > 0) {
+        lithosphericPlatesMap.set(p.id, {
+          id: p.id,
+          type: p.type,
+          tiles: Array.from(p.tiles),
+          plateMovementVector: p.movementVector,
+        });
+      }
+    });
+
+    return { map: resultMap, lithosphericPlatesMap };
   }
 
   private _isFarEnough(

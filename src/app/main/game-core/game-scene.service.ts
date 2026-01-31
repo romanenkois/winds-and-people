@@ -23,8 +23,14 @@ export class GameSceneService implements OnDestroy {
 
   private canvas!: HTMLCanvasElement;
 
-  mapColoringMode: 'lithospheric' | 'elevation' | 'temperature' | 'humidity' | 'biomes' = 'biomes';
-  mapSize = 7;
+  mapColoringMode:
+    | 'lithospheric'
+    | 'lithospheric-activity'
+    | 'elevation'
+    | 'temperature'
+    | 'humidity'
+    | 'biomes' = 'lithospheric-activity';
+  mapSize = 5;
 
   constructor() {}
 

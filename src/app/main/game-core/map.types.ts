@@ -13,6 +13,7 @@ export interface LithosphericPlate {
   id: LithosphericPlateId;
   type: LithosphericType;
   tiles: GameTileId[];
+  plateMovementVector: { x: number; y: number; z: number };
 }
 
 export type GameMap = Map<GameTileId, GameTile>;
@@ -27,6 +28,7 @@ export interface GameTile {
 
   lithosphericPlateId: number;
   lithosphericType: LithosphericType;
+  lithosphericActivityStress?: number;
 
   elevation: number;
   temperature: number;

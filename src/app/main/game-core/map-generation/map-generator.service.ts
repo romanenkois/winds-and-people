@@ -35,8 +35,10 @@ export class MapGeneratorService {
       this._generatorLithosphericMapService.generateLithosphericPlates(hexMap);
     console.log('Lithospheric Plates generated');
 
-    const elevationMap =
-      this._generatorElevationMapService.generateElevation(lithosphericPlatesMap);
+    const elevationMap = this._generatorElevationMapService.generateElevation({
+      map: lithosphericPlatesMap.map,
+      lithosphericPlatesMap: lithosphericPlatesMap.lithosphericPlatesMap,
+    });
     console.log('Elevation Map generated');
 
     const temperatureMap = this._generatorTemperatureMapService.generateTemperature(elevationMap);

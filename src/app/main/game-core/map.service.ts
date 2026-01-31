@@ -22,7 +22,17 @@ export class MapService {
     this.map = this._mapGeneratorService.generateMap({ subdivisionLevel }).gameMap;
   }
 
-  public getTitleColor(tile: GameTile, coloringType: 'humidity' | 'elevation' | 'temperature' | 'biomes' | 'lithospheric' | never): string {
+  public getTitleColor(
+    tile: GameTile,
+    coloringType:
+      | 'humidity'
+      | 'elevation'
+      | 'temperature'
+      | 'biomes'
+      | 'lithospheric'
+      | 'lithospheric-activity'
+      | never,
+  ): string {
     switch (coloringType) {
       case 'humidity':
         return this._getColorByHumidity(tile);
@@ -34,6 +44,9 @@ export class MapService {
         return this._getColorByBiome(tile);
       case 'lithospheric':
         return this._getColorByLithospheric(tile);
+      case 'lithospheric-activity':
+        return this._getColorByLithosphericActivity(tile);
+
       default:
         return this._getColorByBiome(tile);
     }
@@ -58,17 +71,29 @@ export class MapService {
 
   private _getColorByElevation(tile: GameTile): string {
     const elevation = tile.elevation;
-    if (elevation < -200) {
-      return '#000080'; // Deep Ocean
-    } else if (elevation >= -200 && elevation < 0) {
-      return '#0000CD'; // Shallow Ocean
-    } else if (elevation >= 0 && elevation < 200) {
-      return '#228B22'; // Lowland
-    } else if (elevation >= 200 && elevation < 1000) {
-      return '#8B4513'; // Highland
-    } else {
-      return '#A9A9A9'; // Mountain
+
+    if (elevation < 0) {
+      // Ocean: blue hue (220), lightness decreases with depth
+      const depth = Math.abs(elevation);
+      // Map depth 0..1000 to lightness 50..10
+      const lightness = Math.max(10, 50 - (depth / 1000) * 40);
+      return `hsl(220, 80%, ${lightness}%)`;
     }
+
+    // Land Logic
+    if (elevation < 1200) {
+      // Green (100) transition to Brown (35)
+      const t = elevation / 1200;
+      const hue = 100 - t * 65;
+      return `hsl(${hue}, 55%, 40%)`;
+    }
+
+    // High Mountains: Brown to White (snow cap)
+    // Transition starts at 1200, peaks around 3000
+    const val = Math.min(1, (elevation - 1200) / 1800);
+    const lightness = 40 + val * 60; // 40 -> 100
+    const saturation = 55 * (1 - val); // Desaturate towards white
+    return `hsl(35, ${saturation}%, ${lightness}%)`;
   }
 
   private _getColorByTemperature(tile: GameTile): string {
@@ -101,7 +126,7 @@ export class MapService {
           case 'arctic ocean':
             return '#E0FFFF';
           case 'coral reef':
-            return '#5cecff';
+            return '#26789e';
           default:
             return '#000000'; // Black as fallback
         }
@@ -133,6 +158,32 @@ export class MapService {
 
   private _getColorByLithospheric(tile: GameTile): string {
     return this._generatePlateColor(tile.lithosphericPlateId, tile.lithosphericType);
+  }
+
+  private _getColorByLithosphericActivity(tile: GameTile): string {
+    const stress = tile.lithosphericActivityStress || 0;
+
+    // Neutral / Sliding area -> Pale Plate Color to distinguish plates
+    if (Math.abs(stress) < 0.01) {
+      const hue = (tile.lithosphericPlateId * 137.5) % 360;
+      return `hsl(${hue}, 100%, 85%)`;
+    }
+
+    if (stress > 0) {
+      // Collision -> Red
+      // Max stress usually around 2.5, rarely up to 5-6.
+      // We clamp saturation logic between 0 and 2.5 for visual range.
+      const intensity = Math.min(1, stress / 2.5);
+      // Lightness moves from 90 (pale red) to 40 (deep red)
+      const lightness = 90 - intensity * 50;
+      return `hsl(0, 100%, ${lightness}%)`;
+    } else {
+      // Divergent -> Blue
+      const intensity = Math.min(1, Math.abs(stress) / 2.5);
+      // Lightness moves from 90 (pale blue) to 40 (deep blue)
+      const lightness = 90 - intensity * 50;
+      return `hsl(240, 100%, ${lightness}%)`;
+    }
   }
 
   private _generatePlateColor(plateId: number, lithosphericType: string): string {

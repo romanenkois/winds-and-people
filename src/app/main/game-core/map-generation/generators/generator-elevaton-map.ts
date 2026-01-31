@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { GameTileId, GameTile } from '../../map.types';
+import { GameTileId, GameTile, LithosphericPlatesMap } from '../../map.types';
 import { GeneratorLithosphericMap } from './generator-lithospheric-map';
 
 export type GeneratorElevationMapTile = Pick<
@@ -20,10 +20,13 @@ export type GeneratorElevationMap = Map<GameTileId, GeneratorElevationMapTile>;
   providedIn: 'root',
 })
 export class GeneratorElevationMapService {
-  public generateElevation(map: GeneratorLithosphericMap): GeneratorElevationMap {
+  public generateElevation( params: {
+    map: GeneratorLithosphericMap,
+    lithosphericPlatesMap: LithosphericPlatesMap,
+  }): GeneratorElevationMap {
     const newMap = new Map<GameTileId, GeneratorElevationMapTile>();
 
-    map.forEach((tile, id) => {
+    params.map.forEach((tile, id) => {
       let elevation = 0;
       if (tile.lithosphericType === 'ocean') {
         elevation = -Math.random() * 1000; // Ocean depth between 0 and -1000
