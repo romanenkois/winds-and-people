@@ -76,7 +76,7 @@ export class MapService {
       // Ocean: blue hue (220), lightness decreases with depth
       const depth = Math.abs(elevation);
       // Map depth 0..1000 to lightness 50..10
-      const lightness = Math.max(10, 50 - (depth / 1000) * 40);
+      const lightness = Math.max(10, 50 - (depth / 5000) * 40);
       return `hsl(220, 80%, ${lightness}%)`;
     }
 

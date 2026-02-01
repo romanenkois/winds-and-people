@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { GameTile, GameTileId, LithosphericPlatesMap, LithosphericType } from '../../map.types';
 import { GeneratorHexMap } from './generator-hex-map';
+import { MapUtils } from './utils';
 
 export type GeneratorLithosphericHexTile = Pick<
   GameTile,
@@ -20,6 +21,8 @@ export type GeneratorLithosphericMap = Map<GameTileId, GeneratorLithosphericHexT
   providedIn: 'root',
 })
 export class GeneratorLithosphericMapService {
+  private readonly _mapUtils = inject(MapUtils);
+
   public generateLithosphericPlates(baseMap: GeneratorHexMap): {
     map: GeneratorLithosphericMap;
     lithosphericPlatesMap: LithosphericPlatesMap;
@@ -36,7 +39,9 @@ export class GeneratorLithosphericMapService {
     let attempts = 0;
     while (seeds.length < numberOfPlates && attempts < 1000) {
       const candidate = tileIds[Math.floor(Math.random() * tileIds.length)];
-      if (this._isFarEnough(candidate, seeds, baseMap, minSeedDistance)) {
+      if (
+        this._mapUtils.isFarEnough({ id: candidate, seeds, map: baseMap, minDist: minSeedDistance })
+      ) {
         seeds.push(candidate);
       }
       attempts++;
@@ -118,6 +123,7 @@ export class GeneratorLithosphericMapService {
 
         for (const tileId of candidates) {
           // chance to skip this tile this turn -> controls overall speed / noise.
+          // Reduced skip chance from 0.9 to 0.2 to reduce "fur" / noise.
           if (Math.random() > 0.1) continue;
 
           const tile = baseMap.get(tileId);
@@ -141,7 +147,7 @@ export class GeneratorLithosphericMapService {
           // 1. Prioritize connectivity (myNeighbors * 10) - encourages filling local holes.
           // 2. Penalize distance (dist * 0.5) - prevents long tentacles stretching far from center.
           //    If a plate is very far, it will have negative weight, losing to any closer plate.
-          const weight = myNeighbors * 10 - dist * 0.3 + Math.random();
+          const weight = myNeighbors * 20 - dist * 0.5 + Math.random();
 
           if (!bids.has(tileId)) bids.set(tileId, []);
           bids.get(tileId)!.push({ plateId: plate.id, weight });
@@ -203,6 +209,51 @@ export class GeneratorLithosphericMapService {
           assignedTiles.set(id, targetPid);
           plates[targetPid].tiles.add(id);
         }
+      }
+    }
+
+    // 3.5 Smoothing Pass (Reduce "Fur")
+    // We do a few passes of cellular automata to smooth boundaries.
+    for (let i = 0; i < 6; i++) {
+      const changes = new Map<number, number>(); // tileId -> newPlateId
+
+      for (const [tileId, currentPlateId] of assignedTiles) {
+        const tile = baseMap.get(tileId);
+        if (!tile) continue;
+
+        const neighborCounts = new Map<number, number>();
+        tile.neighbors.forEach((n) => {
+          if (assignedTiles.has(n)) {
+            const pid = assignedTiles.get(n)!;
+            neighborCounts.set(pid, (neighborCounts.get(pid) || 0) + 1);
+          }
+        });
+
+        let maxC = 0;
+        let bestPid = currentPlateId;
+
+        for (const [pid, count] of neighborCounts) {
+          if (count > maxC) {
+            maxC = count;
+            bestPid = pid;
+          }
+        }
+
+        // Threshold 4 for Hex grid means strict majority (4/6).
+        // If current plate has 2 neighbors and other has 4, we flip.
+        // It smooths out 1-tile protrusions.
+        if (bestPid !== currentPlateId && maxC >= 4) {
+          changes.set(tileId, bestPid);
+        }
+      }
+
+      if (changes.size === 0) break;
+
+      for (const [tid, newPid] of changes) {
+        const oldPid = assignedTiles.get(tid)!;
+        assignedTiles.set(tid, newPid);
+        plates[oldPid].tiles.delete(tid);
+        plates[newPid].tiles.add(tid);
       }
     }
 
@@ -327,8 +378,8 @@ export class GeneratorLithosphericMapService {
       const plate = plates[pid];
       // Decay factor: Land propagates further (lower k), Ocean stops closer (higher k)
       // Since coordinates are -1 to 1, distance 0.1 is significant (~5% of world)
-      const k = plate.type === 'land' ? 15 : 40;
-      const maxDist = plate.type === 'land' ? 0.3 : 0.1;
+      const k = plate.type === 'land' ? 20 : 60;
+      const maxDist = plate.type === 'land' ? 0.22 : 0.08;
 
       const queue: number[] = [sourceId];
       const visited = new Set<number>([sourceId]);
@@ -368,7 +419,6 @@ export class GeneratorLithosphericMapService {
       }
     }
 
-
     // 7. Construct Result
     const resultMap = new Map<GameTileId, GeneratorLithosphericHexTile>();
     for (const [id, base] of baseMap) {
@@ -398,33 +448,5 @@ export class GeneratorLithosphericMapService {
     });
 
     return { map: resultMap, lithosphericPlatesMap };
-  }
-
-  private _isFarEnough(
-    id: number,
-    seeds: number[],
-    map: GeneratorHexMap,
-    minDist: number,
-  ): boolean {
-    if (seeds.length === 0) return true;
-    const queue: { id: number; dist: number }[] = [{ id, dist: 0 }];
-    const visited = new Set<number>([id]);
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (current.dist >= minDist) continue;
-
-      const tile = map.get(current.id);
-      if (tile) {
-        for (const n of tile.neighbors) {
-          if (seeds.includes(n)) return false;
-          if (!visited.has(n)) {
-            visited.add(n);
-            queue.push({ id: n, dist: current.dist + 1 });
-          }
-        }
-      }
-    }
-    return true;
   }
 }

@@ -29,8 +29,8 @@ export class GameSceneService implements OnDestroy {
     | 'elevation'
     | 'temperature'
     | 'humidity'
-    | 'biomes' = 'lithospheric-activity';
-  mapSize = 5;
+    | 'biomes' = 'elevation';
+  mapSize = 7;
 
   constructor() {}
 

@@ -28,27 +28,34 @@ export class MapGeneratorService {
   public generateMap(params: MapGenerationParams): GameScene {
     const newGameScene: Partial<GameScene> = {};
 
+    let timeStart = performance.now();
     const hexMap = this._generatorHexMapService.generateGeodesicSphere(params.subdivisionLevel);
-    console.log('Hex Map generated');
+    console.log('Hex Map generated', performance.now() - timeStart, 'ms');
+    timeStart -= performance.now();
 
     const lithosphericPlatesMap =
       this._generatorLithosphericMapService.generateLithosphericPlates(hexMap);
-    console.log('Lithospheric Plates generated');
+    console.log('Lithospheric Plates generated', performance.now() - timeStart, 'ms');
+    timeStart -= performance.now();
 
     const elevationMap = this._generatorElevationMapService.generateElevation({
       map: lithosphericPlatesMap.map,
       lithosphericPlatesMap: lithosphericPlatesMap.lithosphericPlatesMap,
     });
-    console.log('Elevation Map generated');
+    console.log('Elevation Map generated', performance.now() - timeStart, 'ms');
+    timeStart -= performance.now();
 
     const temperatureMap = this._generatorTemperatureMapService.generateTemperature(elevationMap);
-    console.log('Temperature Map generated');
+    console.log('Temperature Map generated', performance.now() - timeStart, 'ms');
+    timeStart -= performance.now();
 
     const humidityMap = this._generatorHumidityMapService.generateHumidity(temperatureMap);
-    console.log('Humidity Map generated');
+    console.log('Humidity Map generated', performance.now() - timeStart, 'ms');
+    timeStart -= performance.now();
 
     const biomeMap = this._generatorBiomesMapService.generateBiomes(humidityMap);
-    console.log('Biome Map generated');
+    console.log('Biome Map generated', performance.now() - timeStart, 'ms');
+    timeStart -= performance.now();
 
     newGameScene.gameMap = biomeMap as unknown as GameScene['gameMap'];
 
