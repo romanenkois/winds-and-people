@@ -88,6 +88,10 @@ export class MapService {
       return `hsl(${hue}, 55%, 40%)`;
     }
 
+    if (elevation > 10000) {
+      return '#ff00f2';
+    }
+
     // High Mountains: Brown to White (snow cap)
     // Transition starts at 1200, peaks around 3000
     const val = Math.min(1, (elevation - 1200) / 1800);

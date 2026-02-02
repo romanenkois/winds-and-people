@@ -40,8 +40,9 @@ export class MapUtils {
     map: T;
     tile: R;
     type: 'ocean' | 'land';
+    skipHexDistance?: number;
   }): { hexDistance: number; relativeDistance: number; tile: R }[] {
-    const { map, tile, type } = params;
+    const { map, tile, type, skipHexDistance } = params;
     const results: { hexDistance: number; relativeDistance: number; tile: R }[] = [];
 
     // 1. Check if start tile matches the requested type
@@ -57,6 +58,10 @@ export class MapUtils {
     // 3. BFS Loop
     while (queue.length > 0) {
       const current = queue.shift()!;
+
+      if (skipHexDistance !== undefined && current.dist > skipHexDistance) {
+        break;
+      }
 
       // If we've processed all nodes at a distance less than the found minimum, we can stop.
       if (current.dist >= minDistFound) {

@@ -27,7 +27,7 @@ export class GeneratorLithosphericMapService {
     map: GeneratorLithosphericMap;
     lithosphericPlatesMap: LithosphericPlatesMap;
   } {
-    const numberOfPlates = 15;
+    const numberOfPlates = 20;
     const percentOfOceanicPlates = 0.7;
     const minimumPlateSize = 10;
     const minSeedDistance = 10;
@@ -378,8 +378,8 @@ export class GeneratorLithosphericMapService {
       const plate = plates[pid];
       // Decay factor: Land propagates further (lower k), Ocean stops closer (higher k)
       // Since coordinates are -1 to 1, distance 0.1 is significant (~5% of world)
-      const k = plate.type === 'land' ? 20 : 60;
-      const maxDist = plate.type === 'land' ? 0.22 : 0.08;
+      const k = plate.type === 'land' ? 10 : 60;
+      const maxDist = plate.type === 'land' ? 0.3 : 0.08;
 
       const queue: number[] = [sourceId];
       const visited = new Set<number>([sourceId]);
