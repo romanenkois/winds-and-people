@@ -8,10 +8,11 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { GameSceneService } from '../game-core/game-scene.service';
+import { KeyValuePipe } from '@angular/common';
 
 @Component({
   selector: 'app-game-window',
-  imports: [],
+  imports: [KeyValuePipe],
   templateUrl: './game-window.html',
   styleUrls: ['./game-window.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,6 +21,8 @@ import { GameSceneService } from '../game-core/game-scene.service';
 export class GameWindow implements OnDestroy {
   private gameSceneService = inject(GameSceneService);
   private canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
+
+  protected tileInfo = this.gameSceneService.clickedTile;
 
   constructor() {
     effect(() => {

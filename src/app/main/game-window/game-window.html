@@ -1,3 +1,13 @@
 <div class="game-window">
   <canvas #canvas></canvas>
+
+  @if (this.tileInfo()) {
+    <div class="tile-info">
+      @for (item of this.tileInfo() | keyvalue; track item.key) {
+        @if (item.key !== 'corners') {
+          <p>{{ item.key }}: {{ item.value }}</p>
+        }
+      }
+    </div>
+  }
 </div>

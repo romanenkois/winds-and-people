@@ -1,4 +1,4 @@
-import { Injectable, NgZone, OnDestroy, inject } from '@angular/core';
+import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { MapGeneratorService } from './map-generation/map-generator.service';
@@ -9,6 +9,8 @@ import { MapService } from './map.service';
 export class GameSceneService implements OnDestroy {
   private readonly _mapService = inject(MapService);
   private readonly _ngZone = inject(NgZone);
+
+  public clickedTile = signal<GameTile | null>(null);
 
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
@@ -168,7 +170,10 @@ export class GameSceneService implements OnDestroy {
         const clickedTile = this._mapService.getMap().get(tileId);
 
         if (clickedTile) {
+          // console.log('Clicked tile:', clickedTile);
           console.log('Clicked tile:', clickedTile);
+          this.clickedTile.set(clickedTile);
+
           // TODO: Implement visual feedback highlighting for single mesh
         }
       }

@@ -33,7 +33,7 @@ export class GeneratorBiomesMapService {
   }
 
   private _determineBiome(tile: GameTile): Biome {
-    if (tile.lithosphericType === 'ocean') {
+    if (tile.elevation < 0) {
       if (tile.temperature < 0) {
         return 'arctic ocean';
       } else if (tile.temperature < 5) {
@@ -46,12 +46,12 @@ export class GeneratorBiomesMapService {
         return 'shallow ocean';
       }
     }
-    if (tile.lithosphericType === 'land') {
+    if (tile.elevation >= 0) {
       if (tile.elevation > 1000) {
         return 'mountain';
       }
       if (tile.temperature < 0) {
-       return 'arctic desert';
+        return 'arctic desert';
       } else if (tile.temperature < 5) {
         return 'tundra';
       } else if (tile.temperature < 10) {
