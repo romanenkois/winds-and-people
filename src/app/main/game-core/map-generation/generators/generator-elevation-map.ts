@@ -97,7 +97,7 @@ export class GeneratorElevationMapService {
         }
         if (
           !tile.lithosphericActivityStress ||
-          (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) < 0.05)
+          (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) < 0.1)
         ) {
           const randomIslands: number | false = (() => {
             let a = this.remap(

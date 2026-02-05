@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GameTile } from '../../map.types';
-import { GeneratorElevationMap } from './generator-elevaton-map';
+import { GeneratorElevationMap } from './generator-elevation-map';
 
 export type GeneratorTemperatureMapTile = Pick<
   GameTile,
