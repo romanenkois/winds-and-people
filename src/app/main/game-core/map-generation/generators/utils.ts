@@ -9,7 +9,12 @@ import {
   providedIn: 'root',
 })
 export class MapUtils {
-  public isFarEnough(params: { id: number; seeds: number[]; map: GeneratorHexMap; minDist: number }): boolean {
+  public isFarEnough(params: {
+    id: number;
+    seeds: number[];
+    map: GeneratorHexMap;
+    minDist: number;
+  }): boolean {
     const { id, seeds, map, minDist } = params;
     if (seeds.length === 0) return true;
     const queue: { id: number; dist: number }[] = [{ id, dist: 0 }];
@@ -108,5 +113,15 @@ export class MapUtils {
     }
 
     return results;
+  }
+
+  public customSigmoid(params: {
+    x: number;
+    maxValue: number;
+    steepness: number;
+    midpoint: number;
+    startingOffset: number;
+  }): number {
+    return params.maxValue / (1 + Math.exp(-params.steepness * (params.x - params.midpoint))) + params.startingOffset;
   }
 }

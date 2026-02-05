@@ -81,9 +81,9 @@ export class MapService {
     }
 
     // Land Logic
-    if (elevation < 1200) {
+    if (elevation < 1000) {
       // Green (100) transition to Brown (35)
-      const t = elevation / 1200;
+      const t = elevation / 1000;
       const hue = 100 - t * 65;
       return `hsl(${hue}, 55%, 40%)`;
     }
@@ -118,43 +118,37 @@ export class MapService {
   }
 
   private _getColorByBiome(tile: GameTile): string {
-    switch (tile.lithosphericType) {
-      case 'ocean':
-        switch (tile.biome) {
-          case 'deep ocean':
-            return '#000080';
-          case 'shallow ocean':
-            return '#0000CD';
-          case 'freezing ocean':
-            return '#ADD8E6';
-          case 'arctic ocean':
-            return '#E0FFFF';
-          case 'coral reef':
-            return '#26789e';
-          default:
-            return '#000000'; // Black as fallback
-        }
-      case 'land':
-        switch (tile.biome) {
-          case 'plains':
-            return '#afd392';
-          case 'forest':
-            return '#0a7e0a';
-          case 'desert':
-            return '#f1c19f';
-          case 'jungle':
-            return '#79d43c';
-          case 'mountain':
-            return '#575656';
-          case 'taiga':
-            return '#2d522d';
-          case 'tundra':
-            return '#E0FFFF';
-          case 'arctic desert':
-            return '#ffffff';
-          default:
-            return '#000000'; // Black as fallback
-        }
+    switch (tile.biome) {
+      case 'deep ocean':
+        return '#000080';
+      case 'shallow ocean':
+        return '#0000CD';
+      case 'freezing ocean':
+        return '#ADD8E6';
+      case 'arctic ocean':
+        return '#E0FFFF';
+      case 'coral reef':
+        return '#2384a1';
+      case 'inland sea':
+        return '#1e9aff';
+      case 'freezing inland sea':
+        return '#96dce6';
+      case 'plains':
+        return '#afd392';
+      case 'forest':
+        return '#0a7e0a';
+      case 'desert':
+        return '#f1c19f';
+      case 'jungle':
+        return '#79d43c';
+      case 'mountain':
+        return '#575656';
+      case 'taiga':
+        return '#2d522d';
+      case 'tundra':
+        return '#E0FFFF';
+      case 'arctic desert':
+        return '#ffffff';
       default:
         return '#000000'; // Black as fallback
     }
@@ -177,7 +171,7 @@ export class MapService {
       // Collision -> Red
       // Max stress usually around 2.5, rarely up to 5-6.
       // We clamp saturation logic between 0 and 2.5 for visual range.
-      const intensity = Math.min(1, stress / 2.5);
+      const intensity = Math.min(1, stress / 6);
       // Lightness moves from 90 (pale red) to 40 (deep red)
       const lightness = 90 - intensity * 50;
       return `hsl(0, 100%, ${lightness}%)`;

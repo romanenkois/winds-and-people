@@ -23,7 +23,7 @@ export class GeneratorBiomesMapService {
   }
 
   private _getRandomBiome(tile: GameTile): Biome {
-    const biomes: Biome[] =
+    const biomes: readonly Biome[] =
       tile.lithosphericType === 'land'
         ? gameConfig.biomes.landBiomes
         : gameConfig.biomes.oceanBiomes;
@@ -33,20 +33,27 @@ export class GeneratorBiomesMapService {
   }
 
   private _determineBiome(tile: GameTile): Biome {
-    if (tile.elevation < 0) {
+    if (tile.elevation <= 0) {
+      if (tile.lithosphericType === 'land') {
+        if (tile.temperature > 5) {
+          return 'inland sea';
+        } else {
+          return 'freezing inland sea';
+        }
+      }
+
       if (tile.temperature < 0) {
         return 'arctic ocean';
       } else if (tile.temperature < 5) {
         return 'freezing ocean';
-      } else if (tile.temperature > 30 && tile.elevation > -100) {
+      } else if (tile.temperature > 32 && tile.elevation > -5) {
         return 'coral reef';
       } else if (tile.elevation < -700) {
         return 'deep ocean';
       } else {
         return 'shallow ocean';
       }
-    }
-    if (tile.elevation >= 0) {
+    } else {
       if (tile.elevation > 1000) {
         return 'mountain';
       }
@@ -68,6 +75,5 @@ export class GeneratorBiomesMapService {
         return 'desert';
       }
     }
-    return 'ocean';
   }
 }

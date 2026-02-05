@@ -45,11 +45,19 @@ export class GeneratorElevationMapService {
     const newMap = new Map<GameTileId, GeneratorElevationMapTile>();
     let maxElevationGenerated = 0;
     let minElevationGenerated = 0;
+    let maxTileStress = 0;
+    let minTileStress = 0;
 
     params.map.forEach((tile, id) => {
       let elevation = 0;
+      const lithosphericPlateSeed = tile.lithosphericPlateId * 42 * this.randomSeeds.seedA;
 
-      if (tile.lithosphericType === 'ocean') {
+      if (
+        tile.lithosphericType === 'ocean'
+        // &&
+        // tile.lithosphericActivityStress &&
+        // tile.lithosphericActivityStress > 1000
+      ) {
         elevation = this.remap(
           this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 1),
           -3000,
@@ -77,10 +85,20 @@ export class GeneratorElevationMapService {
         );
 
         if (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) > 0.1) {
-          elevation =
-            elevation -
-            Math.abs(Math.pow((Math.random() + 0.8) * tile.lithosphericActivityStress, 3) * 40);
-        } else {
+          elevation += -this._mapUtils.customSigmoid({
+            x: Math.max(0, Math.abs(tile.lithosphericActivityStress) - 1),
+            maxValue:
+              8000 +
+              this.remap(this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 64), 0, 4000),
+            steepness: 1.2,
+            midpoint: 4,
+            startingOffset: elevation,
+          });
+        }
+        if (
+          !tile.lithosphericActivityStress ||
+          (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) < 0.05)
+        ) {
           const randomIslands: number | false = (() => {
             let a = this.remap(
               this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 32),
@@ -154,49 +172,44 @@ export class GeneratorElevationMapService {
             elevation = elevation * (1 - factor) + shallowElevation * factor;
           }
         }
-
-        if (elevation < minElevationGenerated) {
-          minElevationGenerated = elevation;
-          console.log('New min elevation generated:', minElevationGenerated);
-        }
       } else {
-        // elevation = 2000;
-        elevation = this.remap(
-          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 1),
-          0,
-          500,
-        );
-        elevation += this.remap(
-          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedB, 2),
-          0,
-          70,
-        );
         elevation += this.remap(
           this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedC, 4),
-          0,
-          30,
+          -40,
+          250,
         );
         elevation += this.remap(
-          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedD, 8),
-          0,
-          15,
+          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedC, 8),
+          -25,
+          100,
         );
         elevation += this.remap(
-          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 16),
+          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedD, 16),
+          -10,
+          50,
+        );
+        elevation += this.remap(
+          this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedD, 32),
           0,
           10,
         );
 
-        if (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) > 0.1) {
-          elevation = Math.max(
-            Math.pow(
-              (0.8 + (0.6 * (Math.random() + Math.random())) / 2) * tile.lithosphericActivityStress,
-              4,
-            ) *
-              15 +
-              elevation,
-            -100,
-          );
+        if (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) > 0.01) {
+          if (tile.lithosphericActivityStress > 0) {
+            elevation += this._mapUtils.customSigmoid({
+              x: tile.lithosphericActivityStress - 1,
+              maxValue:
+                6000 +
+                this.remap(
+                  this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 16),
+                  0,
+                  4000,
+                ),
+              steepness: 1.2,
+              midpoint: 4,
+              startingOffset: elevation,
+            });
+          }
         }
 
         if (elevation > 0) {
@@ -214,21 +227,75 @@ export class GeneratorElevationMapService {
               1,
               7,
               200,
-              'sigmoid',
+              'quintic',
             );
           }
         }
 
-        if (elevation > maxElevationGenerated) {
-          maxElevationGenerated = elevation;
-          console.log('New max elevation generated:', maxElevationGenerated);
-        }
+        const getGlacierPeriodEffect = (() => {
+          let glacierEffectElevation = 0;
+          glacierEffectElevation += this.remap(
+            this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 2),
+            -30,
+            10,
+          );
+          glacierEffectElevation += this.remap(
+            this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 4),
+            -50,
+            10,
+          );
+          glacierEffectElevation += this.remap(
+            this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 16),
+            -80,
+            10,
+          );
+          glacierEffectElevation += this.remap(
+            this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 64),
+            -100,
+            30,
+          );
+
+          return glacierEffectElevation;
+        })();
+        const glacierEffectElevationForce =
+          Math.abs(tile.y) >
+          0.3 +
+            this.remap(this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 2), 0.0, 0.2)
+            ? Math.abs(tile.y) * this.remap(Math.random(), 0.9, 1.1)
+            : 0;
+        elevation += getGlacierPeriodEffect * glacierEffectElevationForce;
+      }
+
+      if (elevation < minElevationGenerated) {
+        minElevationGenerated = elevation;
+        // console.log('New min elevation generated:', minElevationGenerated);
+      }
+      if (elevation > maxElevationGenerated) {
+        maxElevationGenerated = elevation;
+        // console.log('New max elevation generated:', maxElevationGenerated);
+      }
+      if (tile.lithosphericActivityStress && tile.lithosphericActivityStress > maxTileStress) {
+        maxTileStress = tile.lithosphericActivityStress;
+        // console.log('New max tile stress:', maxTileStress);
+      }
+      if (tile.lithosphericActivityStress && tile.lithosphericActivityStress < minTileStress) {
+        minTileStress = tile.lithosphericActivityStress;
+        // console.log('New min tile stress:', minTileStress);
       }
 
       newMap.set(id, {
         ...tile,
-        elevation,
+        elevation: Math.floor(elevation),
       });
+    });
+
+    console.log('Final elevation range generated:', {
+      min: minElevationGenerated,
+      max: maxElevationGenerated,
+    });
+    console.log('Final tile stress range generated:', {
+      min: minTileStress,
+      max: maxTileStress,
     });
 
     return newMap;
@@ -283,10 +350,10 @@ export class GeneratorElevationMapService {
   smoothElevationNearOcean(
     elevation: number,
     distanceToOcean: number,
-    maxSmoothDistance: number = 2,
-    noSmoothDistance: number = 6,
-    randomVariance: number = 0.1,
-    smoothingType: 'sigmoid' | 'smoothstep' | 'quintic' | 'exponential' = 'smoothstep',
+    maxSmoothDistance: number,
+    noSmoothDistance: number,
+    randomVariance: number,
+    smoothingType: 'sigmoid' | 'smoothstep' | 'quintic' | 'exponential',
   ): number {
     // If beyond no-smooth distance, return original elevation
     if (distanceToOcean >= noSmoothDistance) {
