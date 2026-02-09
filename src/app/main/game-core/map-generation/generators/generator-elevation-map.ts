@@ -1,6 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { GameTileId, GameTile, LithosphericPlatesMap } from '../../map.types';
-import { GeneratorLithosphericMap } from './generator-lithospheric-map';
+import {
+  GeneratorLithosphericHexTile,
+  GeneratorLithosphericMap,
+} from './generator-lithospheric-map';
 import { MapUtils } from './utils';
 
 export type GeneratorElevationMapTile = Pick<
@@ -36,6 +39,8 @@ export class GeneratorElevationMapService {
     this.randomSeeds.seedB = Math.random() * 10000;
     this.randomSeeds.seedC = Math.random() * 10000;
     this.randomSeeds.seedD = Math.random() * 10000;
+
+    console.log('Random seeds for elevation map generation:', this.randomSeeds);
   }
 
   public generateElevation(params: {
@@ -52,12 +57,7 @@ export class GeneratorElevationMapService {
       let elevation = 0;
       const lithosphericPlateSeed = tile.lithosphericPlateId * 42 * this.randomSeeds.seedA;
 
-      if (
-        tile.lithosphericType === 'ocean'
-        // &&
-        // tile.lithosphericActivityStress &&
-        // tile.lithosphericActivityStress > 1000
-      ) {
+      if (tile.lithosphericType === 'ocean') {
         elevation = this.remap(
           this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 1),
           -3000,
@@ -85,15 +85,35 @@ export class GeneratorElevationMapService {
         );
 
         if (tile.lithosphericActivityStress && Math.abs(tile.lithosphericActivityStress) > 0.1) {
-          elevation += -this._mapUtils.customSigmoid({
-            x: Math.max(0, Math.abs(tile.lithosphericActivityStress) - 1),
-            maxValue:
-              8000 +
-              this.remap(this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 64), 0, 4000),
-            steepness: 1.2,
-            midpoint: 4,
-            startingOffset: elevation,
-          });
+          if (tile.lithosphericActivityStress > 0) {
+            elevation -= this._mapUtils.customSigmoid({
+              x: Math.abs(tile.lithosphericActivityStress) + 1,
+              maxValue:
+                8000 +
+                this.remap(
+                  this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 64),
+                  0,
+                  4000,
+                ),
+              steepness: 1.2,
+              midpoint: 4,
+              startingOffset: 0,
+            });
+          } else {
+            elevation -= this._mapUtils.customSigmoid({
+              x: Math.abs(tile.lithosphericActivityStress) + 1,
+              maxValue:
+                1000 +
+                this.remap(
+                  this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 64),
+                  0,
+                  500,
+                ),
+              steepness: 1.2,
+              midpoint: 4,
+              startingOffset: 0,
+            });
+          }
         }
         if (
           !tile.lithosphericActivityStress ||
@@ -150,7 +170,12 @@ export class GeneratorElevationMapService {
             Math.abs(tile.lithosphericActivityStress) < 0.05
           ) {
             elevation = randomIslands;
-          } else if (randomIslandsOreol !== false && randomIslandsOreol < 0) {
+          } else if (
+            randomIslandsOreol !== false &&
+            randomIslandsOreol < 0 &&
+            tile.lithosphericActivityStress &&
+            Math.abs(tile.lithosphericActivityStress) < 0.1
+          ) {
             elevation = randomIslandsOreol;
           }
         }
@@ -173,6 +198,7 @@ export class GeneratorElevationMapService {
           }
         }
       } else {
+        elevation += 0;
         elevation += this.remap(
           this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedC, 4),
           -40,
@@ -207,7 +233,7 @@ export class GeneratorElevationMapService {
                 ),
               steepness: 1.2,
               midpoint: 4,
-              startingOffset: elevation,
+              startingOffset: 0,
             });
           }
         }
@@ -232,38 +258,30 @@ export class GeneratorElevationMapService {
           }
         }
 
-        const getGlacierPeriodEffect = (() => {
-          let glacierEffectElevation = 0;
-          glacierEffectElevation += this.remap(
-            this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 2),
-            -30,
-            10,
-          );
-          glacierEffectElevation += this.remap(
-            this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 4),
-            -50,
-            10,
-          );
-          glacierEffectElevation += this.remap(
-            this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 16),
-            -80,
-            10,
-          );
-          glacierEffectElevation += this.remap(
-            this.getNoise(tile.x, tile.y, tile.z, lithosphericPlateSeed, 64),
-            -100,
-            30,
-          );
-
-          return glacierEffectElevation;
-        })();
-        const glacierEffectElevationForce =
-          Math.abs(tile.y) >
-          0.3 +
-            this.remap(this.getNoise(tile.x, tile.y, tile.z, this.randomSeeds.seedA, 2), 0.0, 0.2)
-            ? Math.abs(tile.y) * this.remap(Math.random(), 0.9, 1.1)
-            : 0;
-        elevation += getGlacierPeriodEffect * glacierEffectElevationForce;
+        elevation += this._castGlacierAgeEffect({
+          tile,
+          maxGlacierPeriodLatitude: 0.2,
+          glacierAgeEffect: 0.1,
+          seed: this.randomSeeds.seedA,
+        });
+        elevation += this._castGlacierAgeEffect({
+          tile,
+          maxGlacierPeriodLatitude: 0.4,
+          glacierAgeEffect: 0.3,
+          seed: this.randomSeeds.seedB,
+        });
+        elevation += this._castGlacierAgeEffect({
+          tile,
+          maxGlacierPeriodLatitude: 0.5,
+          glacierAgeEffect: 0.6,
+          seed: this.randomSeeds.seedC,
+        });
+        elevation += this._castGlacierAgeEffect({
+          tile,
+          maxGlacierPeriodLatitude: 0.3,
+          glacierAgeEffect: 3,
+          seed: this.randomSeeds.seedD,
+        });
       }
 
       if (elevation < minElevationGenerated) {
@@ -299,6 +317,78 @@ export class GeneratorElevationMapService {
     });
 
     return newMap;
+  }
+
+  private _castGlacierAgeEffect(params: {
+    tile: GeneratorLithosphericHexTile;
+    maxGlacierPeriodLatitude: number;
+    glacierAgeEffect: number;
+    seed: number;
+  }): number {
+    const getGlacierPeriodEffect = (() => {
+      // let glacierEffectElevation = -1000;
+      let glacierEffectElevation = 0;
+      const lowEffect = this.getNoise(params.tile.x, params.tile.y, params.tile.z, params.seed, 2);
+      glacierEffectElevation += this.remap(lowEffect, -15, 10);
+
+      const mediumEffect = this.getNoise(
+        params.tile.x,
+        params.tile.y,
+        params.tile.z,
+        params.seed,
+        4,
+      );
+      glacierEffectElevation += this.remap(mediumEffect, -30, 20);
+
+      glacierEffectElevation += this.remap(
+        this.getNoise(params.tile.x, params.tile.y, params.tile.z, params.seed, 16),
+        -40,
+        20,
+      );
+
+      const strongEffect = this.getNoise(
+        params.tile.x,
+        params.tile.y,
+        params.tile.z,
+        params.seed * 1.47,
+        32,
+      );
+      if (
+        strongEffect > 0.7
+        //  && mediumEffect > -0.7 &&
+        // lowEffect > -0.7
+      ) {
+        glacierEffectElevation +=
+          this.remap(strongEffect, -50, -25) * Math.pow(Math.abs(params.tile.y), 5);
+      }
+
+      return glacierEffectElevation;
+    })();
+
+    const noise =
+      this.remap(
+        this.getNoise(params.tile.x, params.tile.y, params.tile.z, params.seed, 4),
+        -0.05,
+        0.05,
+      ) +
+      this.remap(
+        this.getNoise(params.tile.x, params.tile.y, params.tile.z, params.seed, 16),
+        -0.1,
+        0.1,
+      ) +
+      this.remap(
+        this.getNoise(params.tile.x, params.tile.y, params.tile.z, params.seed, 32),
+        -0.05,
+        0.05,
+      );
+
+    const threshold = params.maxGlacierPeriodLatitude + noise;
+
+    const glacierEffectElevationForce =
+      Math.abs(params.tile.y) > threshold
+        ? (Math.abs(params.tile.y) - threshold) / (1 - threshold)
+        : 0;
+    return getGlacierPeriodEffect * glacierEffectElevationForce * params.glacierAgeEffect;
   }
 
   private hash(x: number, y: number, z: number, seed: number): number {
