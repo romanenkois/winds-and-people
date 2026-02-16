@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { GameTileId, GameTile } from '../../map.types';
+import { GameTileId, GameTile, TileType } from '../../map.types';
 
-export type GeneratorHexMapTile = Pick<GameTile, 'id' | 'type' | 'neighbors' | 'x' | 'y' | 'z' | 'corners'>;
+export type GeneratorHexMapTile = Pick<GameTile, 'id' | 'base'>;
 export type GeneratorHexMap = Map<GameTileId, GeneratorHexMapTile>;
 
 interface Vertex {
@@ -231,7 +231,7 @@ export class GeneratorHexMapService {
 
       // Determine tile type based on number of adjacent triangles
       // Pentagons have 5 adjacent triangles, hexagons have 6
-      const type: 'hex' | 'pent' = adjacentTriangles.length === 5 ? 'pent' : 'hex';
+      const type: TileType = adjacentTriangles.length === 5 ? TileType.Pent : TileType.Hex;
 
       // Get neighboring vertices
       const neighborSet = new Set<number>();
@@ -301,12 +301,16 @@ export class GeneratorHexMapService {
 
       const tile: GeneratorHexMapTile = {
         id: vIndex,
-        type,
-        neighbors: Array.from(neighborSet),
-        x: vertex.x,
-        y: vertex.y,
-        z: vertex.z,
-        corners,
+        base: {
+          type,
+          neighbors: Array.from(neighborSet),
+          cordinates: {
+            x: vertex.x,
+            y: vertex.y,
+            z: vertex.z,
+          },
+          corners,
+        },
       };
 
       map.set(tile.id, tile);

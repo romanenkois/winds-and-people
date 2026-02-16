@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   OnDestroy,
+  computed,
 } from '@angular/core';
 import { GameSceneService } from '../game-core/game-scene.service';
 import { KeyValuePipe } from '@angular/common';
@@ -23,6 +24,32 @@ export class GameWindow implements OnDestroy {
   private canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
 
   protected tileInfo = this.gameSceneService.clickedTile;
+
+  protected tileDetails = computed(() => {
+    const tile = this.tileInfo();
+    if (!tile) return {};
+
+    const flatten = (obj: any, prefix = ''): Record<string, any> => {
+      const result: Record<string, any> = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          const value = obj[key];
+          const newKey = prefix ? `${prefix}.${key}` : key;
+
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            Object.assign(result, flatten(value, newKey));
+          } else {
+            result[newKey] = Array.isArray(value) 
+              ? (value.length ? value.join(', ') : '[]')
+              : value;
+          }
+        }
+      }
+      return result;
+    };
+
+    return flatten(tile);
+  });
 
   constructor() {
     effect(() => {

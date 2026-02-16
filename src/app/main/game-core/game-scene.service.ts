@@ -111,15 +111,19 @@ export class GameSceneService implements OnDestroy {
     });
 
     map.forEach((tile) => {
-      if (!tile.corners) return;
+      if (!tile.base.corners) return;
 
       // Center of the tile
-      const center = new THREE.Vector3(tile.x, tile.y, tile.z).multiplyScalar(radius);
+      const center = new THREE.Vector3(
+        tile.base.cordinates.x,
+        tile.base.cordinates.y,
+        tile.base.cordinates.z,
+      ).multiplyScalar(radius);
       // Colors
       const colorHex = this._mapService.getTitleColor(tile, this.mapColoringMode);
       const color = new THREE.Color(colorHex);
 
-      const corners = tile.corners.map((c) =>
+      const corners = tile.base.corners.map((c) =>
         new THREE.Vector3(c.x, c.y, c.z).multiplyScalar(radius),
       );
 

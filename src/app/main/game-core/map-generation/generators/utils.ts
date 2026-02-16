@@ -26,7 +26,7 @@ export class MapUtils {
 
       const tile = map.get(current.id);
       if (tile) {
-        for (const n of tile.neighbors) {
+        for (const n of tile.base.neighbors) {
           if (seeds.includes(n)) return false;
           if (!visited.has(n)) {
             visited.add(n);
@@ -51,7 +51,7 @@ export class MapUtils {
     const results: { hexDistance: number; relativeDistance: number; tile: R }[] = [];
 
     // 1. Check if start tile matches the requested type
-    if (tile.lithosphericType === type) {
+    if (tile.lithosphericData.lithosphericType === type) {
       return [{ hexDistance: 0, relativeDistance: 0, tile }];
     }
 
@@ -76,7 +76,7 @@ export class MapUtils {
       const currentMapTile = map.get(current.id);
       if (!currentMapTile) continue;
 
-      for (const neighborId of currentMapTile.neighbors) {
+      for (const neighborId of currentMapTile.base.neighbors) {
         if (visited.has(neighborId)) continue;
         visited.add(neighborId);
 
@@ -85,16 +85,16 @@ export class MapUtils {
 
         const nextDist = current.dist + 1;
 
-        if (neighborTile.lithosphericType === type) {
+        if (neighborTile.lithosphericData.lithosphericType === type) {
           // Found a matching tile
           if (minDistFound === Infinity) {
             minDistFound = nextDist;
           }
 
           if (nextDist === minDistFound) {
-            const dx = neighborTile.x - tile.x;
-            const dy = neighborTile.y - tile.y;
-            const dz = neighborTile.z - tile.z;
+            const dx = neighborTile.base.cordinates.x - tile.base.cordinates.x;
+            const dy = neighborTile.base.cordinates.y - tile.base.cordinates.y;
+            const dz = neighborTile.base.cordinates.z - tile.base.cordinates.z;
             const relativeDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
             results.push({
@@ -122,6 +122,9 @@ export class MapUtils {
     midpoint: number;
     startingOffset: number;
   }): number {
-    return params.maxValue / (1 + Math.exp(-params.steepness * (params.x - params.midpoint))) + params.startingOffset;
+    return (
+      params.maxValue / (1 + Math.exp(-params.steepness * (params.x - params.midpoint))) +
+      params.startingOffset
+    );
   }
 }

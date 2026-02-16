@@ -53,7 +53,7 @@ export class MapService {
   }
 
   private _getColorByHumidity(tile: GameTile): string {
-    const humidity = tile.humidity;
+    const humidity = tile.climateData.humidity;
     if (humidity >= 0 && humidity < 20) {
       return '#E0F7FA'; // Very Light Blue
     } else if (humidity >= 20 && humidity < 40) {
@@ -70,7 +70,7 @@ export class MapService {
   }
 
   private _getColorByElevation(tile: GameTile): string {
-    const elevation = tile.elevation;
+    const elevation = tile.lithosphericData.elevation;
 
     if (elevation < 0) {
       // Ocean: blue hue (220), lightness decreases with depth
@@ -101,7 +101,7 @@ export class MapService {
   }
 
   private _getColorByTemperature(tile: GameTile): string {
-    const temperature = tile.temperature;
+    const temperature = tile.climateData.temperature;
     if (temperature < -10) {
       return '#FFFFFF'; // Polar
     } else if (temperature >= -10 && temperature < 0) {
@@ -118,7 +118,7 @@ export class MapService {
   }
 
   private _getColorByBiome(tile: GameTile): string {
-    switch (tile.biome) {
+    switch (tile.climateData.biome) {
       case 'deep ocean':
         return '#000080';
       case 'shallow ocean':
@@ -155,15 +155,18 @@ export class MapService {
   }
 
   private _getColorByLithospheric(tile: GameTile): string {
-    return this._generatePlateColor(tile.lithosphericPlateId, tile.lithosphericType);
+    return this._generatePlateColor(
+      tile.lithosphericData.lithosphericPlateId,
+      tile.lithosphericData.lithosphericType,
+    );
   }
 
   private _getColorByLithosphericActivity(tile: GameTile): string {
-    const stress = tile.lithosphericActivityStress || 0;
+    const stress = tile.lithosphericData.lithosphericActivityStress || 0;
 
     // Neutral / Sliding area -> Pale Plate Color to distinguish plates
     if (Math.abs(stress) < 0.01) {
-      const hue = (tile.lithosphericPlateId * 137.5) % 360;
+      const hue = (tile.lithosphericData.lithosphericPlateId * 137.5) % 360;
       return `hsl(${hue}, 100%, 85%)`;
     }
 

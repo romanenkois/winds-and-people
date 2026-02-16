@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { Biome, GameTile, GameTileId } from '../../map.types';
+import { Biome, GameTile, GameTileId, LithosphericType } from '../../map.types';
 import { gameConfig } from '../../config';
+import { GeneratorHumidityMap } from './generator-humidity-map';
 
 export type GeneratorBiomeHexTile = GameTile;
 export type GeneratorBiomesMap = Map<GameTileId, GeneratorBiomeHexTile>;
@@ -9,13 +10,16 @@ export type GeneratorBiomesMap = Map<GameTileId, GeneratorBiomeHexTile>;
   providedIn: 'root',
 })
 export class GeneratorBiomesMapService {
-  public generateBiomes(map: Map<number, Omit<GameTile, 'biome'>>): Map<number, GameTile> {
+  public generateBiomes(map: GeneratorHumidityMap): Map<number, GameTile> {
     const newMap = new Map<number, GameTile>();
 
     map.forEach((tile, id) => {
       newMap.set(id, {
         ...tile,
-        biome: this._determineBiome(tile as GameTile),
+        climateData: {
+          ...tile.climateData,
+          biome: this._determineBiome(tile as GameTile),
+        },
       });
     });
 
@@ -24,7 +28,7 @@ export class GeneratorBiomesMapService {
 
   private _getRandomBiome(tile: GameTile): Biome {
     const biomes: readonly Biome[] =
-      tile.lithosphericType === 'land'
+      tile.lithosphericData.lithosphericType === LithosphericType.Continental
         ? gameConfig.biomes.landBiomes
         : gameConfig.biomes.oceanBiomes;
 
@@ -33,40 +37,40 @@ export class GeneratorBiomesMapService {
   }
 
   private _determineBiome(tile: GameTile): Biome {
-    if (tile.elevation <= 0) {
-      if (tile.lithosphericType === 'land') {
-        if (tile.temperature > 5) {
+    if (tile.lithosphericData.elevation <= 0) {
+      if (tile.lithosphericData.lithosphericType === LithosphericType.Continental) {
+        if (tile.climateData.temperature > 5) {
           return 'inland sea';
         } else {
           return 'freezing inland sea';
         }
       }
 
-      if (tile.temperature < 0) {
+      if (tile.climateData.temperature < 0) {
         return 'arctic ocean';
-      } else if (tile.temperature < 5) {
+      } else if (tile.climateData.temperature < 5) {
         return 'freezing ocean';
-      } else if (tile.temperature > 32 && tile.elevation > -5) {
+      } else if (tile.climateData.temperature > 32 && tile.lithosphericData.elevation > -5) {
         return 'coral reef';
-      } else if (tile.elevation < -700) {
+      } else if (tile.lithosphericData.elevation < -700) {
         return 'deep ocean';
       } else {
         return 'shallow ocean';
       }
     } else {
-      if (tile.elevation > 1000) {
+      if (tile.lithosphericData.elevation > 1000) {
         return 'mountain';
       }
-      if (tile.temperature < 0) {
+      if (tile.climateData.temperature < 0) {
         return 'arctic desert';
-      } else if (tile.temperature < 5) {
+      } else if (tile.climateData.temperature < 5) {
         return 'tundra';
-      } else if (tile.temperature < 10) {
+      } else if (tile.climateData.temperature < 10) {
         return 'taiga';
-      } else if (tile.temperature < 20) {
+      } else if (tile.climateData.temperature < 20) {
         return 'forest';
-      } else if (tile.temperature < 28) {
-        if (tile.humidity < 50) {
+      } else if (tile.climateData.temperature < 28) {
+        if (tile.climateData.humidity < 50) {
           return 'desert';
         } else {
           return 'jungle';

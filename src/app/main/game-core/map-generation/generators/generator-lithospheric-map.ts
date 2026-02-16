@@ -3,18 +3,9 @@ import { GameTile, GameTileId, LithosphericPlatesMap, LithosphericType } from '.
 import { GeneratorHexMap } from './generator-hex-map';
 import { MapUtils } from './utils';
 
-export type GeneratorLithosphericHexTile = Pick<
-  GameTile,
-  | 'id'
-  | 'type'
-  | 'neighbors'
-  | 'x'
-  | 'y'
-  | 'z'
-  | 'lithosphericPlateId'
-  | 'lithosphericType'
-  | 'lithosphericActivityStress'
->;
+export type GeneratorLithosphericHexTile = Pick<GameTile, 'id' | 'base'> & {
+  lithosphericData: Omit<GameTile['lithosphericData'], 'elevation'>;
+};
 export type GeneratorLithosphericMap = Map<GameTileId, GeneratorLithosphericHexTile>;
 
 @Injectable({
@@ -80,7 +71,7 @@ export class GeneratorLithosphericMapService {
       return {
         id: index,
         seedId: seed,
-        type: index < oceanCount ? 'ocean' : 'land',
+        type: index < oceanCount ? LithosphericType.Ocean : LithosphericType.Continental,
         tiles: new Set([seed]),
         frontier: new Set(),
         movementVector: {
@@ -98,7 +89,7 @@ export class GeneratorLithosphericMapService {
     plates.forEach((p) => {
       const tile = baseMap.get(p.seedId);
       if (tile) {
-        tile.neighbors.forEach((n) => {
+        tile.base.neighbors.forEach((n) => {
           if (!assignedTiles.has(n)) p.frontier.add(n);
         });
       }
@@ -130,7 +121,7 @@ export class GeneratorLithosphericMapService {
           if (!tile || !seedTile) continue;
 
           let myNeighbors = 0;
-          tile.neighbors.forEach((n) => {
+          tile.base.neighbors.forEach((n) => {
             if (assignedTiles.get(n) === plate.id) myNeighbors++;
           });
 
@@ -138,9 +129,9 @@ export class GeneratorLithosphericMapService {
           // We calculate hex distance from the seed.
           // Hex distance = max(abs(dx), abs(dy), abs(dz))
           const dist = Math.max(
-            Math.abs(tile.x - seedTile.x),
-            Math.abs(tile.y - seedTile.y),
-            Math.abs(tile.z - seedTile.z),
+            Math.abs(tile.base.cordinates.x - seedTile.base.cordinates.x),
+            Math.abs(tile.base.cordinates.y - seedTile.base.cordinates.y),
+            Math.abs(tile.base.cordinates.z - seedTile.base.cordinates.z),
           );
 
           // Weight formula:
@@ -176,7 +167,7 @@ export class GeneratorLithosphericMapService {
 
         // 2. Add unassigned neighbors to winner's frontier
         const tile = baseMap.get(tileId);
-        tile?.neighbors.forEach((n) => {
+        tile?.base.neighbors.forEach((n) => {
           if (!assignedTiles.has(n)) {
             plates[best.plateId].frontier.add(n);
           }
@@ -193,7 +184,7 @@ export class GeneratorLithosphericMapService {
           const neighborPlates = new Map<number, number>();
           let maxP = -1;
           let maxC = -1;
-          tile.neighbors.forEach((n) => {
+          tile.base.neighbors.forEach((n) => {
             const pid = assignedTiles.get(n);
             if (pid !== undefined) {
               const count = (neighborPlates.get(pid) || 0) + 1;
@@ -222,7 +213,7 @@ export class GeneratorLithosphericMapService {
         if (!tile) continue;
 
         const neighborCounts = new Map<number, number>();
-        tile.neighbors.forEach((n) => {
+        tile.base.neighbors.forEach((n) => {
           if (assignedTiles.has(n)) {
             const pid = assignedTiles.get(n)!;
             neighborCounts.set(pid, (neighborCounts.get(pid) || 0) + 1);
@@ -270,7 +261,7 @@ export class GeneratorLithosphericMapService {
           // Finds heaviest neighbor plate
           const neighborCounts = new Map<number, number>();
           for (const tid of p.tiles) {
-            baseMap.get(tid)?.neighbors.forEach((nid) => {
+            baseMap.get(tid)?.base.neighbors.forEach((nid) => {
               const npid = assignedTiles.get(nid);
               if (npid !== undefined && npid !== p.id) {
                 neighborCounts.set(npid, (neighborCounts.get(npid) || 0) + 1);
@@ -314,16 +305,16 @@ export class GeneratorLithosphericMapService {
       const myPlate = plates[assignedPid];
 
       if (tile && myPlate) {
-        tile.neighbors.forEach((nid) => {
+        tile.base.neighbors.forEach((nid) => {
           const neighborPid = assignedTiles.get(nid);
           if (neighborPid !== undefined && neighborPid !== assignedPid) {
             const neighborPlate = plates[neighborPid];
             const neighborTile = baseMap.get(nid);
 
             if (neighborTile && neighborPlate) {
-              const dx = neighborTile.x - tile.x;
-              const dy = neighborTile.y - tile.y;
-              const dz = neighborTile.z - tile.z;
+              const dx = neighborTile.base.cordinates.x - tile.base.cordinates.x;
+              const dy = neighborTile.base.cordinates.y - tile.base.cordinates.y;
+              const dz = neighborTile.base.cordinates.z - tile.base.cordinates.z;
               const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
 
               const nx = dx / dist;
@@ -378,8 +369,8 @@ export class GeneratorLithosphericMapService {
       const plate = plates[pid];
       // Decay factor: Land propagates further (lower k), Ocean stops closer (higher k)
       // Since coordinates are -1 to 1, distance 0.1 is significant (~5% of world)
-      const k = plate.type === 'land' ? 10 : 60;
-      const maxDist = plate.type === 'land' ? 0.3 : 0.08;
+      const k = plate.type === LithosphericType.Continental ? 10 : 60;
+      const maxDist = plate.type === LithosphericType.Continental ? 0.3 : 0.08;
 
       const queue: number[] = [sourceId];
       const visited = new Set<number>([sourceId]);
@@ -390,16 +381,16 @@ export class GeneratorLithosphericMapService {
         const currTile = baseMap.get(currId);
         if (!currTile) continue;
 
-        for (const nid of currTile.neighbors) {
+        for (const nid of currTile.base.neighbors) {
           if (assignedTiles.get(nid) !== pid) continue; // Stay in plate
           if (visited.has(nid)) continue;
 
           const nTile = baseMap.get(nid);
           if (!nTile) continue;
 
-          const dx = nTile.x - sourceTile.x;
-          const dy = nTile.y - sourceTile.y;
-          const dz = nTile.z - sourceTile.z;
+          const dx = nTile.base.cordinates.x - sourceTile.base.cordinates.x;
+          const dy = nTile.base.cordinates.y - sourceTile.base.cordinates.y;
+          const dz = nTile.base.cordinates.z - sourceTile.base.cordinates.z;
           const physicalDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
           if (physicalDist > maxDist) continue;
@@ -425,13 +416,15 @@ export class GeneratorLithosphericMapService {
       const pid = assignedTiles.get(id)!;
       const p = plates[pid];
       // Fallback if plate lost all tiles (shouldn't happen if map constr is correct)
-      const finalType = p ? p.type : 'ocean';
+      const finalType = p ? p.type : LithosphericType.Ocean;
 
       resultMap.set(id, {
         ...base,
-        lithosphericPlateId: pid,
-        lithosphericType: finalType,
-        lithosphericActivityStress: currentStress.get(id) || 0,
+        lithosphericData: {
+          lithosphericPlateId: pid,
+          lithosphericType: finalType,
+          lithosphericActivityStress: currentStress.get(id) || 0,
+        },
       });
     }
 
