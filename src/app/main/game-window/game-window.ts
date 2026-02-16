@@ -8,8 +8,9 @@ import {
   OnDestroy,
   computed,
 } from '@angular/core';
-import { GameSceneService } from '../game-core/game-scene.service';
 import { KeyValuePipe } from '@angular/common';
+
+import { GameSceneService } from '../game-core/game-scene.service';
 
 @Component({
   selector: 'app-game-window',
@@ -39,8 +40,10 @@ export class GameWindow implements OnDestroy {
           if (value && typeof value === 'object' && !Array.isArray(value)) {
             Object.assign(result, flatten(value, newKey));
           } else {
-            result[newKey] = Array.isArray(value) 
-              ? (value.length ? value.join(', ') : '[]')
+            result[newKey] = Array.isArray(value)
+              ? value.length
+                ? value.join(', ')
+                : '[]'
               : value;
           }
         }
