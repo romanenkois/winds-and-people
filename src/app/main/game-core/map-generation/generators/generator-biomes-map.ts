@@ -37,7 +37,7 @@ export class GeneratorBiomesMapService {
   }
 
   private _determineBiome(tile: GameTile): Biome {
-    if (tile.lithosphericData.elevation <= 0) {
+    if (tile.terrainData.elevation <= 0) {
       if (tile.lithosphericData.lithosphericType === LithosphericType.Continental) {
         if (tile.climateData.temperature > 5) {
           return 'inland sea';
@@ -50,15 +50,15 @@ export class GeneratorBiomesMapService {
         return 'arctic ocean';
       } else if (tile.climateData.temperature < 5) {
         return 'freezing ocean';
-      } else if (tile.climateData.temperature > 32 && tile.lithosphericData.elevation > -5) {
+      } else if (tile.climateData.temperature > 32 && tile.terrainData.elevation > -5) {
         return 'coral reef';
-      } else if (tile.lithosphericData.elevation < -700) {
+      } else if (tile.terrainData.elevation < -700) {
         return 'deep ocean';
       } else {
         return 'shallow ocean';
       }
     } else {
-      if (tile.lithosphericData.elevation > 1000) {
+      if (tile.terrainData.elevation > 1000) {
         return 'mountain';
       }
       if (tile.climateData.temperature < 0) {

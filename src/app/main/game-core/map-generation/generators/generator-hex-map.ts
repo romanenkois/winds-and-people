@@ -303,7 +303,7 @@ export class GeneratorHexMapService {
         id: vIndex,
         base: {
           type,
-          neighbors: Array.from(neighborSet),
+          neighbors: neighborSet,
           cordinates: {
             x: vertex.x,
             y: vertex.y,

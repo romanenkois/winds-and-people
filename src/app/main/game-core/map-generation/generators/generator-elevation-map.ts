@@ -6,7 +6,10 @@ import {
 } from './generator-lithospheric-map';
 import { MapUtils } from './utils';
 
-export type GeneratorElevationMapTile = Pick<GameTile, 'id' | 'base' | 'lithosphericData'>;
+export type GeneratorElevationMapTile = Pick<
+  GameTile,
+  'id' | 'base' | 'lithosphericData' | 'terrainData'
+>;
 export type GeneratorElevationMap = Map<GameTileId, GeneratorElevationMapTile>;
 
 @Injectable({
@@ -419,8 +422,7 @@ export class GeneratorElevationMapService {
 
       newMap.set(id, {
         ...tile,
-        lithosphericData: {
-          ...tile.lithosphericData,
+        terrainData: {
           elevation: Math.floor(elevation),
         },
       });

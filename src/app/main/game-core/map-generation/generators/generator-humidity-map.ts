@@ -2,7 +2,10 @@ import { Injectable } from '@angular/core';
 import { GameTile, GameTileId } from '../../map.types';
 import { GeneratorTemperatureMap } from './generator-temperature-map';
 
-export type GeneratorHumidityMapTile = Pick<GameTile, 'id' | 'base' | 'lithosphericData'> & {
+export type GeneratorHumidityMapTile = Pick<
+  GameTile,
+  'id' | 'base' | 'lithosphericData' | 'terrainData'
+> & {
   climateData: Pick<GameTile['climateData'], 'temperature' | 'humidity'>;
 };
 export type GeneratorHumidityMap = Map<GameTileId, GeneratorHumidityMapTile>;
@@ -19,7 +22,7 @@ export class GeneratorHumidityMapService {
       if (tile.lithosphericData.lithosphericType === 'ocean') {
         humidity = 80 + Math.random() * 20; // Ocean tiles have high humidity
       } else {
-        humidity = 30 + Math.random() * 50 - tile.lithosphericData.elevation * 0.01;
+        humidity = 30 + Math.random() * 50 - tile.terrainData.elevation * 0.01;
         humidity = Math.max(0, Math.min(100, humidity)); // Clamp between 0 and 100
       }
 

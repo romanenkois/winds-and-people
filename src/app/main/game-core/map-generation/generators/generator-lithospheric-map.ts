@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { GameTile, GameTileId, LithosphericPlatesMap, LithosphericType } from '../../map.types';
+import { GameTile, GameTileId, LithosphericPlate, LithosphericPlatesMap, LithosphericType } from '../../map.types';
 import { GeneratorHexMap } from './generator-hex-map';
 import { MapUtils } from './utils';
 
@@ -47,16 +47,7 @@ export class GeneratorLithosphericMapService {
     const shuffledSeeds = [...seeds].sort(() => Math.random() - 0.5);
     const oceanCount = Math.floor(numberOfPlates * percentOfOceanicPlates);
 
-    type Plate = {
-      id: number;
-      seedId: number;
-      type: LithosphericType;
-      tiles: Set<number>;
-      frontier: Set<number>;
-      movementVector: { x: number; y: number; z: number };
-    };
-
-    const plates: Plate[] = shuffledSeeds.map((seed, index) => {
+    const plates: LithosphericPlate[] = shuffledSeeds.map((seed, index) => {
       // 1. Random Direction
       const dx = Math.random() * 2 - 1;
       const dy = Math.random() * 2 - 1;
@@ -434,8 +425,10 @@ export class GeneratorLithosphericMapService {
         lithosphericPlatesMap.set(p.id, {
           id: p.id,
           type: p.type,
-          tiles: Array.from(p.tiles),
-          plateMovementVector: p.movementVector,
+          seedId: p.seedId,
+          tiles: p.tiles,
+          frontier: p.frontier,
+          movementVector: p.movementVector,
         });
       }
     });

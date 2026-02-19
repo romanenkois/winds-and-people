@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { Biome, GameTile } from './map.types';
+import { Biome, GameTile, MapMode } from './map.types';
 import { MapGeneratorService } from './map-generation/map-generator.service';
 
 @Injectable({
@@ -22,29 +22,19 @@ export class MapService {
     this.map = this._mapGeneratorService.generateMap({ subdivisionLevel }).gameMap;
   }
 
-  public getTitleColor(
-    tile: GameTile,
-    coloringType:
-      | 'humidity'
-      | 'elevation'
-      | 'temperature'
-      | 'biomes'
-      | 'lithospheric'
-      | 'lithospheric-activity'
-      | never,
-  ): string {
+  public getTitleColor(tile: GameTile, coloringType: MapMode): string {
     switch (coloringType) {
-      case 'humidity':
+      case MapMode.Humidity:
         return this._getColorByHumidity(tile);
-      case 'elevation':
+      case MapMode.Elevation:
         return this._getColorByElevation(tile);
-      case 'temperature':
+      case MapMode.Temperature:
         return this._getColorByTemperature(tile);
-      case 'biomes':
+      case MapMode.Biomes:
         return this._getColorByBiome(tile);
-      case 'lithospheric':
+      case MapMode.Lithospheric:
         return this._getColorByLithospheric(tile);
-      case 'lithospheric-activity':
+      case MapMode.LithosphericActivity:
         return this._getColorByLithosphericActivity(tile);
 
       default:
@@ -70,7 +60,7 @@ export class MapService {
   }
 
   private _getColorByElevation(tile: GameTile): string {
-    const elevation = tile.lithosphericData.elevation;
+    const elevation = tile.terrainData.elevation;
 
     if (elevation < 0) {
       // Ocean: blue hue (220), lightness decreases with depth

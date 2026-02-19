@@ -1,8 +1,9 @@
 import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { MapGeneratorService } from './map-generation/map-generator.service';
-import { GameTile } from './map.types';
+
+import { GameTile, MapMode } from './map.types';
 import { MapService } from './map.service';
 
 @Injectable()
@@ -25,13 +26,7 @@ export class GameSceneService implements OnDestroy {
 
   private canvas!: HTMLCanvasElement;
 
-  mapColoringMode:
-    | 'lithospheric'
-    | 'lithospheric-activity'
-    | 'elevation'
-    | 'temperature'
-    | 'humidity'
-    | 'biomes' = 'elevation';
+  mapColoringMode = signal<MapMode>(MapMode.Elevation);
   mapSize = 7;
 
   constructor() {}
@@ -120,7 +115,7 @@ export class GameSceneService implements OnDestroy {
         tile.base.cordinates.z,
       ).multiplyScalar(radius);
       // Colors
-      const colorHex = this._mapService.getTitleColor(tile, this.mapColoringMode);
+      const colorHex = this._mapService.getTitleColor(tile, this.mapColoringMode());
       const color = new THREE.Color(colorHex);
 
       const corners = tile.base.corners.map((c) =>
@@ -179,8 +174,14 @@ export class GameSceneService implements OnDestroy {
           this.clickedTile.set(clickedTile);
 
           // TODO: Implement visual feedback highlighting for single mesh
+        } else {
+          this.clickedTile.set(null);
         }
+      } else {
+        this.clickedTile.set(null);
       }
+    } else {
+      this.clickedTile.set(null);
     }
   }
 

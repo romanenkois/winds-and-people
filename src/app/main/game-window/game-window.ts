@@ -11,6 +11,7 @@ import {
 import { KeyValuePipe } from '@angular/common';
 
 import { GameSceneService } from '../game-core/game-scene.service';
+import { MapType } from '@angular/compiler';
 
 @Component({
   selector: 'app-game-window',
@@ -53,6 +54,8 @@ export class GameWindow implements OnDestroy {
 
     return flatten(tile);
   });
+
+  protected mapTypes: MapType[] = [];
 
   constructor() {
     effect(() => {
