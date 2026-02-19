@@ -14,7 +14,9 @@
   <div class="map-types">
     @for (mapType of this.mapTypes; track $index) {
       <div>
-        <button></button>
+        <button (click)="this.selectMapType(mapType)">
+          <p>{{ mapType }}</p>
+        </button>
       </div>
     }
   </div>

@@ -11,7 +11,7 @@ import {
 import { KeyValuePipe } from '@angular/common';
 
 import { GameSceneService } from '../game-core/game-scene.service';
-import { MapType } from '@angular/compiler';
+import { MapMode } from '../game-core/map.types';
 
 @Component({
   selector: 'app-game-window',
@@ -55,7 +55,7 @@ export class GameWindow implements OnDestroy {
     return flatten(tile);
   });
 
-  protected mapTypes: MapType[] = [];
+  protected mapTypes = Object.values(MapMode);
 
   constructor() {
     effect(() => {
@@ -86,4 +86,8 @@ export class GameWindow implements OnDestroy {
   private onCanvasClick = (event: MouseEvent): void => {
     this.gameSceneService.onCanvasClick(event);
   };
+
+  protected selectMapType(mapType: MapMode): void {
+    this.gameSceneService.mapColoringMode.set(mapType);
+  }
 }

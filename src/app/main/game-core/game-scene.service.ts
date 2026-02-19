@@ -1,4 +1,4 @@
-import { Injectable, NgZone, OnDestroy, inject, signal } from '@angular/core';
+import { Injectable, NgZone, OnDestroy, effect, inject, signal, untracked } from '@angular/core';
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -29,7 +29,14 @@ export class GameSceneService implements OnDestroy {
   mapColoringMode = signal<MapMode>(MapMode.Elevation);
   mapSize = 7;
 
-  constructor() {}
+  constructor() {
+    effect(() => {
+      this.mapColoringMode();
+      if (this.hexMesh) {
+        this.updateMapColors();
+      }
+    });
+  }
 
   public init(canvas: HTMLCanvasElement): void {
     this.canvas = canvas;
@@ -115,7 +122,7 @@ export class GameSceneService implements OnDestroy {
         tile.base.cordinates.z,
       ).multiplyScalar(radius);
       // Colors
-      const colorHex = this._mapService.getTitleColor(tile, this.mapColoringMode());
+      const colorHex = this._mapService.getTitleColor(tile, untracked(this.mapColoringMode));
       const color = new THREE.Color(colorHex);
 
       const corners = tile.base.corners.map((c) =>
@@ -148,6 +155,31 @@ export class GameSceneService implements OnDestroy {
 
     this.hexMesh = new THREE.Mesh(geometry, material);
     this.scene.add(this.hexMesh);
+  }
+
+  private updateMapColors(): void {
+    if (!this.hexMesh) return;
+
+    const map = this._mapService.getMap();
+    const colors: number[] = [];
+
+    map.forEach((tile) => {
+      if (!tile.base.corners) return;
+
+      const colorHex = this._mapService.getTitleColor(tile, this.mapColoringMode());
+      const color = new THREE.Color(colorHex);
+      const corners = tile.base.corners;
+
+      for (let i = 0; i < corners.length; i++) {
+        // 3 vertices per triangle
+        colors.push(color.r, color.g, color.b);
+        colors.push(color.r, color.g, color.b);
+        colors.push(color.r, color.g, color.b);
+      }
+    });
+
+    this.hexMesh.geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    this.hexMesh.geometry.attributes['color'].needsUpdate = true;
   }
 
   public onCanvasClick(event: MouseEvent): void {
