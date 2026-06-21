@@ -34,6 +34,8 @@ export interface GameTile {
     corners: Coordinates[];
   };
 
+
+
   lithosphericData: {
     lithosphericPlateId: number;
     lithosphericType: LithosphericType;

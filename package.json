@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "build:wasm": "cd map-generator-wasm && wasm-pack build --target web --out-dir ../public/wasm",
+    "prestart": "npm run build:wasm",
     "start": "ng serve",
+    "prebuild": "npm run build:wasm",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
