@@ -19,6 +19,9 @@ export class MapService {
       'with total tiles:',
       totalTiles,
     );
+
+    // here
+    // this._mapGeneratorService.generateMapAsync()
     this.map = this._mapGeneratorService.generateMap({ subdivisionLevel }).gameMap;
   }
 

@@ -9,6 +9,7 @@ import {
   GeneratorLithosphericMapService,
   GeneratorTemperatureMapService,
 } from './generators';
+import { WasmBridgeService } from './wasm-bridge.service';
 
 interface MapGenerationParams {
   subdivisionLevel: number;
@@ -18,6 +19,8 @@ interface MapGenerationParams {
   providedIn: 'root',
 })
 export class MapGeneratorService {
+  private readonly _wasmBridgeService = inject(WasmBridgeService)
+
   private readonly _generatorHexMapService = inject(GeneratorHexMapService);
   private readonly _generatorLithosphericMapService = inject(GeneratorLithosphericMapService);
   private readonly _generatorElevationMapService = inject(GeneratorElevationMapService);
@@ -25,7 +28,14 @@ export class MapGeneratorService {
   private readonly _generatorHumidityMapService = inject(GeneratorHumidityMapService);
   private readonly _generatorBiomesMapService = inject(GeneratorBiomesMapService);
 
+  public async generateMapAsync() {
+    const wasmResult = await this._wasmBridgeService.generateMap()
+
+    console.log('WASM Result:', wasmResult);
+  }
+
   public generateMap(params: MapGenerationParams): GameScene {
+
     const newGameScene: Partial<GameScene> = {};
 
     let timeStart = performance.now();
